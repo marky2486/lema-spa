@@ -305,6 +305,7 @@ const AdminDashboard = ({
       feedback
     } = useBookingFeedback(order?.id, order?.reference_id);
     const [fetchedOrder, setFetchedOrder] = useState(order);
+    
     useEffect(() => {
       const fetchFullOrder = async () => {
         if (!order?.reference_id) return;
@@ -314,6 +315,7 @@ const AdminDashboard = ({
             error
           } = await supabase.from('orders').select('*').eq('reference_id', order.reference_id).single();
           if (data && !error) {
+            console.log('[AdminDashboard OrderDetailsModal] Fetched order:', data);
             setFetchedOrder(data);
           }
         } catch (err) {
@@ -322,7 +324,9 @@ const AdminDashboard = ({
       };
       fetchFullOrder();
     }, [order]);
+    
     if (!order) return null;
+    
     const details = fetchedOrder?.details || order.details || {};
     const cart = details.cart || [];
     const basePrice = details.baseTotalPrice || fetchedOrder.total_price || order.totalPrice || 0;
@@ -330,13 +334,36 @@ const AdminDashboard = ({
     const hasDiscount = !!details.discount;
     const discountAmount = hasDiscount ? basePrice * details.discount.percentage / 100 : 0;
     const finalTotal = Number(fetchedOrder.total_price || order.totalPrice || 0) + Number(tipAmount);
+    
+    // Extract guest type and room number
     const rawGuestType = fetchedOrder?.guest_type ?? details.guestType ?? "";
     const rawRoomNo = fetchedOrder?.room_no ?? details.roomNumber ?? "";
     const guestType = rawGuestType && rawGuestType !== "N/A" ? rawGuestType : "\u00A0";
     const roomNo = rawRoomNo && rawRoomNo !== "N/A" ? rawRoomNo : "\u00A0";
+    
+    // Extract payment methods
     const pmArray = fetchedOrder?.payment_methods || details?.payment_methods || details?.customerDetails?.payment_methods || [];
     const pmNote = fetchedOrder?.payment_method_note || details?.payment_method_note || details?.customerDetails?.payment_method_note || '';
+    
+    // Extract therapist name
     const therapistName = fetchedOrder?.therapists?.name || fetchedOrder?.therapist?.name || details?.therapistName || "Not assigned";
+    
+    // Extract feedback details for Time In/Out
+    const feedbackDetails = (() => {
+        if (!feedback?.details) return {};
+        if (typeof feedback.details === 'string') {
+            try { return JSON.parse(feedback.details); } catch(e) { return {}; }
+        }
+        return feedback.details;
+    })();
+    
+    const timeIn = feedbackDetails?.timeIn || "-";
+    const timeOut = feedbackDetails?.timeOut || "-";
+    
+    console.log('[AdminDashboard OrderDetailsModal] Feedback:', feedback);
+    console.log('[AdminDashboard OrderDetailsModal] Feedback Details:', feedbackDetails);
+    console.log('[AdminDashboard OrderDetailsModal] Time In:', timeIn, 'Time Out:', timeOut);
+    
     return <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm print:bg-white print:p-0 print:static print:block print:inset-auto">
         <motion.div initial={{
         opacity: 0,
@@ -418,13 +445,13 @@ const AdminDashboard = ({
                       <div>
                           <h3 className="text-sm font-bold text-[#7a6a5a] uppercase tracking-wider mb-3 print:mb-2 print:text-black">Time Tracking</h3>
                           <div className="grid grid-cols-1 gap-4 p-4 rounded-lg border border-[#e5ddd5] print:border-black print:p-3 print:gap-3">
-                            <div className="flex items-end gap-3">
+                            <div className="flex items-center justify-between gap-3">
                                 <span className="font-bold text-[#5a4a3a] print:text-black whitespace-nowrap print:text-sm">Time In:</span>
-                                <div className="flex-grow border-b border-dashed border-gray-300 print:border-black"></div>
+                                <span className="font-medium text-[#5a4a3a] print:text-black print:text-sm">{timeIn}</span>
                             </div>
-                            <div className="flex items-end gap-3 pt-2 print:pt-1">
+                            <div className="flex items-center justify-between gap-3 pt-2 print:pt-1 border-t border-gray-200">
                                 <span className="font-bold text-[#5a4a3a] print:text-black whitespace-nowrap print:text-sm">Time Out:</span>
-                                <div className="flex-grow border-b border-dashed border-gray-300 print:border-black"></div>
+                                <span className="font-medium text-[#5a4a3a] print:text-black print:text-sm">{timeOut}</span>
                             </div>
                           </div>
                       </div>
@@ -551,7 +578,8 @@ const AdminDashboard = ({
             }} aria-label="Open Management Page" title="Manage Users" className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${activeTab === 'management' ? 'bg-[#8b7355] text-white shadow-sm' : 'text-gray-600 hover:bg-gray-100'}`}>
                      <Users className="h-4 w-4" /> Management
                   </button>
-                </>}
+                </>
+}
           </div>
         </div>
 
