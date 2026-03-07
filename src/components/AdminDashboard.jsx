@@ -541,7 +541,22 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
     const timeOut = feedbackDetails?.timeOut || "-";
     
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm print:bg-white print:p-0 print:static print:block print:inset-auto">
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm print:bg-white print:p-0 print:static print:block print:ins
+              <style>
+        {`
+        @media print {
+          @page { 
+            size: letter landscape; 
+            margin: 0.5in; 
+          }
+          body { 
+            print-color-adjust: exact; 
+            -webkit-print-color-adjust: exact; 
+            background-color: white !important;
+          }
+        }
+        `}
+      </style>et-auto">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -549,12 +564,10 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
         >
            <div className="flex items-center justify-between p-6 border-b border-[#f5f1ed] bg-white sticky top-0 z-10 print:hidden">
               <div>
-                <h2 className="text-xl font-bold text-[#5a4a3a]">Service Slip</h2>
-                <p className="text-sm text-gray-500">Ref: {fetchedOrder.reference_id || order.id || order.reference_id}</p>
+                <h2 className="text-xl font-bold text-[#5a4a3a]">Service Slip Preview</h2>                <p className="text-sm text-gray-500">Ref: {fetchedOrder.reference_id || order.id || order.reference_id}</p>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
-                  <Printer className="h-4 w-4" /> Print
+                <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2 bg-[#8b7355] text-white hover:bg-[#7a6345] hover:text-white border-none">                  <Printer className="h-4 w-4" /> Print
                 </Button>
                 <Button variant="ghost" size="icon" onClick={onClose}>
                   <X className="h-5 w-5" />
