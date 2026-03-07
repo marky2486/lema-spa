@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  @apply bg-[#f5f1ed] text-[#5a4a3a];
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  scroll-behavior: smooth;
+}
+
+@media print {
+  @page {
+    size: letter landscape;
+    margin: 0.5in;
+  }
+
+  body {
+    background-color: white !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    margin: 0; /* Reset body margin for print */
+  }
+
+  /* Ensure no scrolling or unwanted elements appear */
+  html, body {
+    height: auto;
+    overflow: visible;
+  }
+
+  /* Force elements to break inside pages if they are too big */
+  .page-break-inside-avoid {
+    page-break-inside: avoid;
+  }
+  
+  /* Generic hidden class for print */
+  .print-hidden {
+    display: none !important;
+  }
+}

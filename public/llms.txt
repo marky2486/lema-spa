@@ -1,0 +1,4 @@
+## Pages
+- [Client Health Form - Lema Spa](/publichealthform): Client health form for Lema Filipino Spa.
+- [Client Intake Form - Lema Spa](/publicintake): Client intake form for Lema Filipino Spa.
+- [Guest Feedback - Lema Spa](/publicfeedback): Share your experience at Lema Filipino Spa.
