@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Printer, XCircle, FileText, AlertCircle, CreditCard } from 'lucide-react';
@@ -10,19 +9,37 @@ import SatisfactionForm from './SatisfactionForm';
 import { useToast } from '@/components/ui/use-toast';
 import { Badge } from '@/components/ui/badge';
 
-// Helper to ensure array
+// Robust array extraction that handles JSON strings, standard arrays, and comma-separated lists
 const ensureArray = (val) => {
-    if (!val) return [];
-    if (Array.isArray(val)) return val;
+    if (val === null || val === undefined || val === '') return [];
+    
+    if (Array.isArray(val)) {
+        return val.flatMap(v => {
+            if (typeof v === 'string' && (v.startsWith('[') || v.startsWith('{'))) {
+                try {
+                    const parsed = JSON.parse(v);
+                    return Array.isArray(parsed) ? parsed : [parsed];
+                } catch (e) {
+                    return v;
+                }
+            }
+            return v;
+        }).filter(Boolean);
+    }
+    
     if (typeof val === 'string') {
         try {
             const parsed = JSON.parse(val);
             if (Array.isArray(parsed)) return parsed;
-            return [val];
+            return [parsed];
         } catch (e) {
+            if (val.includes(',')) {
+                return val.split(',').map(s => s.trim()).filter(Boolean);
+            }
             return [val];
         }
     }
+    
     return [String(val)];
 };
 
@@ -40,6 +57,7 @@ function OrderPreview({
   const [hasFeedback, setHasFeedback] = useState(false);
   const [loadingFeedback, setLoadingFeedback] = useState(true);
   const [orderData, setOrderData] = useState(null);
+  const [feedbackData, setFeedbackData] = useState(null);
   const { toast } = useToast();
   
   useEffect(() => {
@@ -52,13 +70,11 @@ function OrderPreview({
               .eq('reference_id', orderNumber)
               .single();
             if (data) {
-                console.log("OrderPreview - fetched order data FULL:", data);
-                console.log("OrderPreview - DB payment_methods RAW:", data.payment_methods, typeof data.payment_methods);
-                console.log("OrderPreview - DB payment_method_note RAW:", data.payment_method_note);
+                console.log("[OrderPreview] Fetched order data:", data);
                 setOrderData(data);
             }
         } catch (err) {
-            console.error("Error fetching order data:", err);
+            console.error("[OrderPreview] Error fetching order data:", err);
         }
     }
 
@@ -76,17 +92,21 @@ function OrderPreview({
             if (error) {
                throw error;
             } else if (data && data.length > 0) {
+                console.log("[OrderPreview] Fetched feedback data:", data[0]);
                 setHasFeedback(true);
+                setFeedbackData(data[0]);
                 if (data[0].tip_amount) {
                     setTipAmount(Number(data[0].tip_amount));
                 }
             } else {
                setHasFeedback(false);
+               setFeedbackData(null);
                setTipAmount(0);
             }
         } catch (err) {
-            console.error("Error fetching feedback:", err);
+            console.error("[OrderPreview] Error fetching feedback:", err);
             setHasFeedback(false);
+            setFeedbackData(null);
         } finally {
             setLoadingFeedback(false);
         }
@@ -102,11 +122,13 @@ function OrderPreview({
         (payload) => {
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
              setHasFeedback(true);
+             setFeedbackData(payload.new);
              if (payload.new.tip_amount) {
                  setTipAmount(Number(payload.new.tip_amount));
              }
           } else if (payload.eventType === 'DELETE') {
              setHasFeedback(false);
+             setFeedbackData(null);
              setTipAmount(0);
           }
         }
@@ -126,15 +148,41 @@ function OrderPreview({
   const basePrice = customerDetails.baseTotalPrice || totalPrice;
   const discountAmount = hasDiscount ? basePrice - totalPrice : 0;
   const finalTotal = totalPrice + tipAmount;
+  
+  // Extract therapist name
   const therapistName = orderData?.therapist?.name || customerDetails?.therapistName || orderData?.details?.therapistName;
 
-  // Extract payment methods and note robustly
+  // Extract payment methods and note
   const rawPmMethods = orderData?.payment_methods || customerDetails?.payment_methods || [];
   const pmArray = ensureArray(rawPmMethods);
   const pmNote = orderData?.payment_method_note || customerDetails?.payment_method_note || "";
 
-  console.log("OrderPreview - Resolved pmArray to pass:", pmArray);
-  console.log("OrderPreview - Resolved pmNote to pass:", pmNote);
+  console.log("[OrderPreview] Resolved payment methods:", pmArray);
+  console.log("[OrderPreview] Resolved payment note:", pmNote);
+
+  // Extract feedback details
+  const feedbackDetails = (() => {
+      if (!feedbackData?.details) return {};
+      if (typeof feedbackData.details === 'string') {
+          try { return JSON.parse(feedbackData.details); } catch(e) { return {}; }
+      }
+      return feedbackData.details;
+  })();
+
+  // Extract Guest Type and Room No
+  const rawGuestType = feedbackDetails?.guest_type || feedbackDetails?.guestType || orderData?.guest_type || "";
+  const rawRoomNo = feedbackDetails?.room_no || feedbackDetails?.roomNo || orderData?.room_no || "";
+  
+  const guestType = rawGuestType && rawGuestType !== "N/A" ? rawGuestType : null;
+  const roomNo = rawRoomNo && rawRoomNo !== "N/A" ? rawRoomNo : null;
+  
+  console.log("[OrderPreview] Guest Type:", guestType, "Room No:", roomNo);
+  
+  // Extract Time Tracking
+  const timeIn = feedbackDetails?.timeIn || "-";
+  const timeOut = feedbackDetails?.timeOut || "-";
+  
+  console.log("[OrderPreview] Time In:", timeIn, "Time Out:", timeOut);
 
   const handleFeedbackSubmit = (formData) => {
     setHasFeedback(true);
@@ -239,7 +287,14 @@ function OrderPreview({
       </div>
 
       <div className="print:hidden">
-          <PrintHeader title="Service Slip" therapistName={therapistName} />
+          <PrintHeader 
+            title="Service Slip" 
+            therapistName={therapistName}
+            guestType={guestType}
+            roomNo={roomNo}
+            paymentMethods={pmArray}
+            paymentNote={pmNote}
+          />
       </div>
 
       {/* Order Slip Container */}
@@ -249,7 +304,15 @@ function OrderPreview({
         
         <div className="w-full print:w-[40%] print:flex print:flex-col print:justify-between print:h-full print:border-r print:border-[#e5ddd5] print:pr-4">
             <div className="hidden print:block mb-2">
-                <PrintHeader title="Service Slip" therapistName={therapistName} landscape={true} />
+                <PrintHeader 
+                  title="Service Slip" 
+                  therapistName={therapistName}
+                  guestType={guestType}
+                  roomNo={roomNo}
+                  paymentMethods={pmArray}
+                  paymentNote={pmNote}
+                  landscape={true}
+                />
             </div>
 
             <div className="flex justify-between items-start mb-8 print:mb-2 border-b-2 border-[#f5f1ed] pb-6 print:pb-2 print:border-b">
@@ -261,7 +324,7 @@ function OrderPreview({
                 </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-8 mb-8 print:block print:space-y-2 print:mb-2 print:flex-grow">
+            <div className="grid grid-cols-2 gap-8 mb-8 print:block print:space-y-3 print:mb-2 print:flex-grow">
                 <div>
                     <h3 className="text-xs font-semibold text-[#7a6a5a] uppercase tracking-wider mb-3 print:mb-1 print:text-[10px] print:text-black">Customer Information</h3>
                     <div className="space-y-1 text-sm print:text-[11px] print:leading-tight">
@@ -272,25 +335,12 @@ function OrderPreview({
                     </div>
                 </div>
                 
-                <div className="text-right print:text-left">
-                    <h3 className="text-xs font-semibold text-[#7a6a5a] uppercase tracking-wider mb-3 print:mb-1 print:text-[10px] print:text-black">Payment Details</h3>
+                {/* Time Tracking Section */}
+                <div className="print:block">
+                    <h3 className="text-xs font-semibold text-[#7a6a5a] uppercase tracking-wider mb-3 print:mb-1 print:text-[10px] print:text-black">Time Tracking</h3>
                     <div className="space-y-1 text-sm print:text-[11px] print:leading-tight">
-                      <div className="break-words">
-                        <span className="font-semibold block mb-1">Methods:</span> 
-                        <div className="flex flex-wrap gap-1 justify-end print:justify-start">
-                          {pmArray.length > 0 ? pmArray.map(m => (
-                            <Badge key={m} variant="secondary" className="bg-[#fdfbf7] text-[#5a4a3a] border-[#e5ddd5] font-normal print:px-0 print:py-0 print:border-none print:bg-transparent print:after:content-[','] last:print:after:content-none text-[10px] print:text-[11px]">
-                              {m}
-                            </Badge>
-                          )) : "Not specified"}
-                        </div>
-                        {pmNote && (
-                          <div className="text-[10px] mt-1 italic text-gray-500 max-w-[200px] text-right print:text-left">
-                            Note: {pmNote}
-                          </div>
-                        )}
-                      </div>
-                      <p className="break-words mt-1"><span className="font-semibold">Date:</span> {new Date().toLocaleDateString()}</p>
+                      <p className="break-words"><span className="font-semibold">Time In:</span> {timeIn}</p>
+                      <p className="break-words"><span className="font-semibold">Time Out:</span> {timeOut}</p>
                     </div>
                 </div>
             </div>
