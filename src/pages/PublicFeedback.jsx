@@ -21,42 +21,49 @@ const PublicFeedback = () => {
     const submitFeedback = async (formData) => {
         const id = "FB-" + Math.floor(100000 + Math.random() * 900000);
         
+        // This ensures payment data is included in the feedback record
         const details = {
             ...formData,
             rating: formData.overallRating,
             service: formData.serviceAvailed,
-            comment: formData.enjoyedMost
+            comment: formData.enjoyedMost,
+            // ADDED: Explicitly ensure payment data is passed into the 'details' JSON
+            payment_methods: formData.paymentMethods || [],
+            payment_method_note: formData.paymentNote || ""
         };
     
         try {
            const { error } = await supabase.from('feedbacks').insert({
               reference_id: id,
+              booking_id: formData.booking_id, // Link to the original order
               customer_name: formData.guestName || "Anonymous",
               status: 'New',
-              details: details
+              details: JSON.stringify(details),
+              tip_amount: formData.gratuityAmount || 0
            });
     
            if (error) throw error;
+
+           return true; 
     
         } catch (error) {
           console.error("Feedback submission error:", error);
-          toast({ title: "Submission Failed", description: "Could not save feedback. Please try again.", variant: "destructive" });
+          toast({
+              title: "Error",
+              description: "Could not save your feedback. Please try again.",
+              variant: "destructive"
+          });
+          return false;
         }
     };
 
     return (
-        <>
+        <div className="min-h-screen bg-[#fdfbf7]">
             <Helmet>
-                <title>Guest Feedback - Lema Spa</title>
-                <meta name="description" content="Share your experience at Lema Filipino Spa." />
+                <title>Guest Feedback | Lema Filipino Spa</title>
             </Helmet>
-            <SatisfactionForm 
-                services={serviceNames}
-                isPublic={true}
-                onSubmit={submitFeedback}
-                onClose={() => {}} // No-op for public form
-            />
-        </>
+            <SatisfactionForm isPublic={true} onExternalSubmit={submitFeedback} />
+        </div>
     );
 };
 

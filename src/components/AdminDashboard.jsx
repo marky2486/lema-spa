@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { X, Eye, Clock, CheckCircle2, AlertCircle, Printer, Star, Coffee, Trash2, Shield, Users, Gift, Tag, Package, UserCog, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -14,6 +15,7 @@ import TherapistManager from '@/components/TherapistManager';
 import { useBookingFeedback } from '@/hooks/useBookingFeedback';
 import PrintHeader from './PrintHeader';
 import FeedbackPrintModal from './FeedbackPrintModal';
+import { isUUID } from '@/lib/isUUID';
 
 // Use the exact same URL as HealthForm to ensure visual consistency
 const BODY_DIAGRAM_URL = "https://horizons-cdn.hostinger.com/48b83274-55e8-47c8-8de2-939b4d60caf7/98955f0a88244c3fcf168145a115e104.png";
@@ -337,36 +339,109 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
     const [fetchedOrder, setFetchedOrder] = useState(order);
     
     useEffect(() => {
-      const fetchFullOrder = async () => {
-        if (!order?.reference_id) return;
+      console.group(`[AdminDashboard OrderDetailsModal Debug] Order Selected`);
+      
+      const fetchFullOrderAndTherapist = async () => {
+        // 1. Check incoming object fields
+        const orderCopy = order ? JSON.parse(JSON.stringify(order)) : null;
+        console.log("[1. Initial Prop] Raw order object from parent:", orderCopy);
+
+        // 2. Determine best reference field
+        const refFieldUsed = order?.reference_id ? 'reference_id' : 
+                             (order?.id ? 'id' : 
+                             (order?.booking_id ? 'booking_id' : 
+                             (order?.order_id ? 'order_id' : null)));
+                             
+        const orderRef = order?.reference_id || order?.id || order?.booking_id || order?.order_id;
+
+        // 3. Early exit if no valid ref
+        if (!orderRef) {
+            console.error("[Error] No valid identifier (reference_id, id, booking_id, order_id) found in order object.");
+            console.groupEnd();
+            return;
+        }
+
         try {
-          const { data, error } = await supabase
-            .from('orders')
-            .select(`
-              *,
-              therapists (
-                id,
-                name,
-                specialization
-              )
-            `)
-            .eq('reference_id', order.reference_id)
-            .single();
-          
-          if (data && !error) {
-            console.log('[AdminDashboard OrderDetailsModal] Fetched order with therapist:', data);
-            setFetchedOrder(data);
+          // Build query dynamically based on the UUID detection
+          let query = supabase.from('orders').select('*');
+          if (isUUID(orderRef)) {
+              query = query.eq('id', orderRef);
+          } else {
+              query = query.eq('reference_id', orderRef);
           }
+
+          const { data: orderData, error: orderError } = await query.single();
+          
+          if (orderError) throw orderError;
+          
+          // COMPREHENSIVE LOGGING FOR TASK 1
+          console.log('--- EXHAUSTIVE ORDER LOGGING ---');
+          console.log('COMPLETE ORDER DATA:', JSON.stringify(orderData, null, 2));
+          console.log('ORDER KEYS:', Object.keys(orderData || {}));
+          console.log('DETAILS OBJECT:', JSON.stringify(orderData?.details, null, 2));
+          
+          console.log('--- INDIVIDUAL TOP-LEVEL FIELDS ---');
+          console.log('reference_id:', orderData?.reference_id);
+          console.log('customer_name:', orderData?.customer_name);
+          console.log('customer_email:', orderData?.customer_email);
+          console.log('total_price:', orderData?.total_price);
+          console.log('status:', orderData?.status);
+          console.log('therapist_id:', orderData?.therapist_id);
+          console.log('payment_method:', orderData?.payment_method);
+          console.log('payment_methods:', orderData?.payment_methods);
+          console.log('payment_method_note:', orderData?.payment_method_note);
+          console.log('created_at:', orderData?.created_at);
+          
+          if (orderData?.details) {
+            console.log('--- DETAILS FIELDS ---');
+            console.log('details.guest_type:', orderData.details.guest_type);
+            console.log('details.room_no:', orderData.details.room_no);
+            console.log('details.guestType:', orderData.details.guestType);
+            console.log('details.roomNo:', orderData.details.roomNo);
+            console.log('details.room_number:', orderData.details.room_number);
+            console.log('ALL DETAILS KEYS:', Object.keys(orderData.details || {}));
+          }
+          console.log('-----------------------------------');
+          
+          let mergedOrder = { ...orderData };
+
+          // Identify therapist ID from various potential locations
+          const dbColumnId = orderData.therapist_id;
+          const detailsId = orderData.details?.therapist_id;
+          const nestedDetailsId = orderData.details?.therapist?.id;
+
+          const targetTherapistId = dbColumnId || detailsId || nestedDetailsId;
+
+          if (targetTherapistId) {
+            const { data: therapistData, error: therapistError } = await supabase
+              .from('therapists')
+              .select('*')
+              .eq('id', targetTherapistId)
+              .single();
+
+            if (therapistData) {
+              mergedOrder.therapist = therapistData;
+              mergedOrder.therapists = therapistData; // Add to both for compatibility
+            }
+          }
+          
+          setFetchedOrder(mergedOrder);
+          
         } catch (err) {
-          console.error("Error fetching full order:", err);
+          console.error(`[Error] fetchFullOrderAndTherapist failed for value ${orderRef}:`, err);
+          setFetchedOrder(order); // fallback to prop
+        } finally {
+          console.groupEnd();
         }
       };
-      fetchFullOrder();
+      
+      fetchFullOrderAndTherapist();
     }, [order]);
-    
+
     if (!order) return null;
     
     const details = fetchedOrder?.details || order.details || {};
+    const customerDetails = details?.customerDetails || fetchedOrder?.customerDetails || {};
     const cart = details.cart || [];
     const basePrice = details.baseTotalPrice || fetchedOrder.total_price || order.totalPrice || 0;
     const tipAmount = feedback?.tip_amount || 0;
@@ -374,21 +449,85 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
     const discountAmount = hasDiscount ? basePrice * details.discount.percentage / 100 : 0;
     const finalTotal = Number(fetchedOrder.total_price || order.totalPrice || 0) + Number(tipAmount);
     
-    // Extract guest type and room number
-    const rawGuestType = fetchedOrder?.guest_type ?? details.guestType ?? "";
-    const rawRoomNo = fetchedOrder?.room_no ?? details.roomNumber ?? "";
+    // EXHAUSTIVE EXTRACTION FOR TASK 2
+    const rawGuestType = fetchedOrder?.guest_type 
+                      || fetchedOrder?.guestType 
+                      || details?.guest_type 
+                      || details?.guestType 
+                      || details?.customerDetails?.guestType 
+                      || customerDetails?.guestType
+                      || fetchedOrder?.customerDetails?.guestType
+                      || "";
+                      
+    const rawRoomNo = fetchedOrder?.room_no 
+                   || fetchedOrder?.roomNo 
+                   || fetchedOrder?.room_number 
+                   || details?.room_no 
+                   || details?.roomNo 
+                   || details?.roomNumber 
+                   || details?.room_number 
+                   || details?.customerDetails?.roomNo 
+                   || details?.customerDetails?.roomNumber
+                   || customerDetails?.roomNo
+                   || customerDetails?.roomNumber
+                   || fetchedOrder?.customerDetails?.roomNo
+                   || "";
+                   
     const guestType = rawGuestType && rawGuestType !== "N/A" ? rawGuestType : "\u00A0";
     const roomNo = rawRoomNo && rawRoomNo !== "N/A" ? rawRoomNo : "\u00A0";
     
-    // Extract payment methods
-    const pmArray = fetchedOrder?.payment_methods || details?.payment_methods || details?.customerDetails?.payment_methods || [];
-    const pmNote = fetchedOrder?.payment_method_note || details?.payment_method_note || details?.customerDetails?.payment_method_note || '';
+    // Helper function to safely convert payment methods to array
+    const ensureArray = (val) => {
+        if (!val) return [];
+        if (Array.isArray(val)) return val;
+        if (typeof val === 'string') {
+            try {
+                const parsed = JSON.parse(val);
+                return Array.isArray(parsed) ? parsed : [val];
+            } catch (e) {
+                return [val];
+            }
+        }
+        return [String(val)];
+    };
+
+    // Extract payment methods - check all possible naming conventions
+    const rawPm = fetchedOrder?.payment_methods || 
+                  fetchedOrder?.paymentmethods || 
+                  fetchedOrder?.paymentMethods ||
+                  details?.payment_methods || 
+                  details?.paymentmethods || 
+                  details?.paymentMethods ||
+                  details?.customerDetails?.payment_methods || 
+                  details?.customerDetails?.paymentmethods ||
+                  customerDetails?.payment_methods ||
+                  customerDetails?.paymentmethods ||
+                  [];
+
+    const pmArray = ensureArray(rawPm);
+
+    const pmNote = fetchedOrder?.payment_method_note || 
+                   fetchedOrder?.paymentmethodnote || 
+                   fetchedOrder?.paymentMethodNote ||
+                   details?.payment_method_note || 
+                   details?.paymentmethodnote || 
+                   details?.paymentMethodNote ||
+                   details?.customerDetails?.payment_method_note || 
+                   customerDetails?.payment_method_note ||
+                   '';
+
+    console.log('[Payment Debug] Raw payment methods:', rawPm);
+    console.log('[Payment Debug] Processed pmArray:', pmArray);
+    console.log('[Payment Debug] Payment note:', pmNote);
+
     
-    // Extract therapist name - now properly from the joined data
-    const therapistName = fetchedOrder?.therapists?.name || details?.therapistName || "Not assigned";
-    
-    console.log('[AdminDashboard] Fetched Order:', fetchedOrder);
-    console.log('[AdminDashboard] Therapist Name:', therapistName);
+    // Compute therapist name logically based on all sources
+    const displayTherapistName = fetchedOrder?.therapist?.name 
+                              || fetchedOrder?.therapists?.name 
+                              || details?.therapistName 
+                              || order?.therapist?.name
+                              || order?.therapists?.name
+                              || "Not assigned";
     
     // Extract feedback details for Time In/Out
     const feedbackDetails = (() => {
@@ -402,10 +541,6 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
     const timeIn = feedbackDetails?.timeIn || "-";
     const timeOut = feedbackDetails?.timeOut || "-";
     
-    console.log('[AdminDashboard OrderDetailsModal] Feedback:', feedback);
-    console.log('[AdminDashboard OrderDetailsModal] Feedback Details:', feedbackDetails);
-    console.log('[AdminDashboard OrderDetailsModal] Time In:', timeIn, 'Time Out:', timeOut);
-    
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm print:bg-white print:p-0 print:static print:block print:inset-auto">
         <motion.div
@@ -416,7 +551,7 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
            <div className="flex items-center justify-between p-6 border-b border-[#f5f1ed] bg-white sticky top-0 z-10 print:hidden">
               <div>
                 <h2 className="text-xl font-bold text-[#5a4a3a]">Service Slip</h2>
-                <p className="text-sm text-gray-500">Ref: {order.reference_id || order.id}</p>
+                <p className="text-sm text-gray-500">Ref: {fetchedOrder.reference_id || order.id || order.reference_id}</p>
               </div>
               <div className="flex gap-2">
                 <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
@@ -438,7 +573,7 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
                       logo={LEMA_LOGO} 
                       guestType={guestType !== "\u00A0" ? guestType : undefined} 
                       roomNo={roomNo !== "\u00A0" ? roomNo : undefined} 
-                      therapistName={therapistName} 
+                      therapistName={displayTherapistName} 
                       paymentMethods={pmArray} 
                       paymentNote={pmNote} 
                     />
@@ -448,13 +583,13 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
                 <div className="flex justify-between items-end border-b-2 border-[#f5f1ed] pb-4 print:border-black print:mt-2 print:pb-2">
                     <div>
                         <h2 className="text-2xl font-mono font-bold text-[#5a4a3a] print:text-black print:text-xl">
-                          Ref: {fetchedOrder.reference_id || order.id}
+                          Ref: {fetchedOrder.reference_id || order.id || order.reference_id}
                         </h2>
                     </div>
                     <div className="text-right">
                         <p className="text-sm font-bold uppercase text-gray-400 print:text-black print:text-xs">Date</p>
                         <p className="font-medium text-[#5a4a3a] print:text-black print:text-sm">
-                          {formatDate(fetchedOrder.created_at || order.timestamp)}
+                          {formatDate(fetchedOrder.created_at || order.timestamp || order.created_at)}
                         </p>
                     </div>
                 </div>
@@ -473,13 +608,13 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
                             <div className="space-y-1 print:space-y-0 print:flex print:justify-between print:items-start border-b border-transparent print:border-gray-200 print:pb-1">
                                 <span className="text-[10px] font-bold text-gray-400 uppercase print:text-gray-600 print:text-[11px]">Name</span>
                                 <span className="font-medium text-[#5a4a3a] print:text-black leading-tight text-right">
-                                  {fetchedOrder.customer_name || order.customerName}
+                                  {fetchedOrder.customer_name || order.customerName || order.customer_name}
                                 </span>
                             </div>
                             <div className="space-y-1 print:space-y-0 print:flex print:justify-between print:items-start border-b border-transparent print:border-gray-200 print:pb-1">
                                 <span className="text-[10px] font-bold text-gray-400 uppercase print:text-gray-600 print:text-[11px]">Email</span>
                                 <span className="font-medium text-[#5a4a3a] print:text-black leading-tight truncate text-right">
-                                  {details.email || "\u00A0"}
+                                  {details.email || fetchedOrder.customer_email || order.customer_email || "\u00A0"}
                                 </span>
                             </div>
                             <div className="space-y-1 print:space-y-0 print:flex print:justify-between print:items-start border-b border-transparent print:border-gray-200 print:pb-1">
@@ -821,7 +956,10 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
                           variant="outline" 
                           size="sm" 
                           className="gap-2 text-[#8b7355] border-[#8b7355]/30 hover:bg-[#8b7355]/10" 
-                          onClick={() => setSelectedItem(item)}
+                          onClick={() => {
+                            console.log("Setting selected item from table row. Item details:", item);
+                            setSelectedItem(item);
+                          }}
                         >
                           <Eye className="h-3 w-3" /> View
                         </Button>

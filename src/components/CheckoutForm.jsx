@@ -11,6 +11,7 @@ import { CountrySelect } from '@/components/CountrySelect';
 import { cn } from '@/lib/utils';
 import TherapistSelector from './TherapistSelector';
 import { Textarea } from '@/components/ui/textarea';
+import { isUUID } from '@/lib/isUUID';
 
 function CheckoutForm({ cart, totalPrice, onCancel, onSubmit }) {
   const { toast } = useToast();

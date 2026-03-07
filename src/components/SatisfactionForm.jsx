@@ -11,6 +11,7 @@ import { supabase } from '@/lib/customSupabaseClient';
 import { useLanguage } from '@/contexts/LanguageContext';
 import PrintHeader from './PrintHeader';
 import FeedbackPrintModal from './FeedbackPrintModal';
+import { isUUID } from '@/lib/isUUID';
 
 const LEMA_LOGO = "https://horizons-cdn.hostinger.com/48b83274-55e8-47c8-8de2-939b4d60caf7/d1952d3bda1cba2e721a0a8c399d7c46.png";
 
@@ -55,14 +56,14 @@ const CustomServiceSelect = ({ id, value, onChange, options = [], allOptions = [
   const filteredOptions = options.filter(o => {
       if (!localSearch) return true;
       const query = localSearch.toLowerCase();
-      const refMatch = o.reference_id?.toLowerCase().includes(query);
+      const refMatch = o.reference_id?.toLowerCase().includes(query) || o.id?.toLowerCase().includes(query);
       const nameMatch = o.customer_name?.toLowerCase().includes(query);
       const dateMatch = o.created_at && new Date(o.created_at).toLocaleDateString().includes(query);
       return refMatch || nameMatch || dateMatch;
   });
 
-  const selectedOrder = allOptions.find(o => o.reference_id === value) || options.find(o => o.reference_id === value);
-  const displayValue = selectedOrder ? `${selectedOrder.reference_id} - ${selectedOrder.customer_name}` : 'Select Service ID...';
+  const selectedOrder = allOptions.find(o => o.reference_id === value || o.id === value) || options.find(o => o.reference_id === value || o.id === value);
+  const displayValue = selectedOrder ? `${selectedOrder.reference_id || selectedOrder.id} - ${selectedOrder.customer_name}` : 'Select Service ID...';
 
   return (
       <div className="space-y-2 sm:col-span-2" ref={wrapperRef}>
@@ -118,13 +119,13 @@ const CustomServiceSelect = ({ id, value, onChange, options = [], allOptions = [
                                           key={o.id}
                                           type="button"
                                           onClick={() => {
-                                              onChange(o.reference_id);
+                                              onChange(o.reference_id || o.id);
                                               setIsOpen(false);
                                               setLocalSearch(''); 
                                           }}
-                                          className={`w-full text-left px-3 py-2 text-sm rounded-sm hover:bg-[#f5f1ed] hover:text-[#8b7355] transition-colors flex flex-col gap-0.5 ${value === o.reference_id ? 'bg-[#f5f1ed] text-[#8b7355] font-medium' : 'text-[#5a4a3a]'}`}
+                                          className={`w-full text-left px-3 py-2 text-sm rounded-sm hover:bg-[#f5f1ed] hover:text-[#8b7355] transition-colors flex flex-col gap-0.5 ${(value === o.reference_id || value === o.id) ? 'bg-[#f5f1ed] text-[#8b7355] font-medium' : 'text-[#5a4a3a]'}`}
                                       >
-                                          <span>{o.reference_id} - {o.customer_name}</span>
+                                          <span>{o.reference_id || o.id} - {o.customer_name}</span>
                                           <span className="text-xs text-gray-400 font-normal">
                                               Date: {new Date(o.created_at).toLocaleDateString()}
                                           </span>
@@ -175,7 +176,6 @@ const SatisfactionForm = ({
   const [submittedFeedback, setSubmittedFeedback] = useState(null);
   const [submittedOrder, setSubmittedOrder] = useState(null);
   
-  // Task 1: Mount/Data load logging
   useEffect(() => {
       console.log("SatisfactionForm [Mount] Initial Props received:", { 
           bookingId, 
@@ -191,6 +191,9 @@ const SatisfactionForm = ({
     guestType: '',
     roomNo: '',
     dateOfVisit: new Date().toISOString().split('T')[0],
+    timeInOutQuestion: null,
+    timeIn: '',
+    timeOut: '',
     serviceAvailed: '',
     therapistName: '',
     paymentMethods: ensureArray(paymentMethods),
@@ -248,7 +251,14 @@ const SatisfactionForm = ({
                     booking_id: targetId,
                     gratuityAmount: data[0].tip_amount || data[0].details.gratuityAmount || 0,
                     guestType: data[0].details.guest_type || data[0].details.guestType || prev.guestType,
-                    roomNo: data[0].details.room_no || data[0].details.roomNo || prev.roomNo
+                    roomNo: data[0].details.room_no || data[0].details.roomNo || prev.roomNo,
+                    timeInOutQuestion: data[0].details.timeInOutQuestion || data[0].details.time_in_out_question || prev.timeInOutQuestion,
+                    timeIn: data[0].details.timeIn || prev.timeIn,
+                    timeOut: data[0].details.timeOut || prev.timeOut,
+                    therapistFeedback: {
+                        ...prev.therapistFeedback,
+                        ...data[0].details.therapistFeedback
+                    }
                 }));
             }
             return true;
@@ -291,14 +301,9 @@ const SatisfactionForm = ({
       
       if (therapistsRes.data) setTherapists(therapistsRes.data);
       if (ordersRes.data) {
-          console.log(`SatisfactionForm [Data Load] - Fetched orders successfully: ${ordersRes.data.length} records`);
-          if (ordersRes.data.length > 0) {
-              console.log("SatisfactionForm [Data Load] - Sample order payment_methods:", ordersRes.data[0].payment_methods);
-          }
-          
           setOrders(ordersRes.data);
           if (bookingId) {
-              const order = ordersRes.data.find(o => o.reference_id === bookingId);
+              const order = ordersRes.data.find(o => (isUUID(bookingId) ? o.id === bookingId : o.reference_id === bookingId));
               if (order) {
                   applyOrderToForm(order, bookingId, therapistsRes.data || []);
                   await checkExistingFeedback(bookingId);
@@ -317,9 +322,8 @@ const SatisfactionForm = ({
     fetchData();
   }, [fetchData]);
 
-  const availableOrders = orders.filter(o => !submittedFeedbackIds.includes(o.reference_id));
+  const availableOrders = orders.filter(o => !submittedFeedbackIds.includes(o.reference_id) && !submittedFeedbackIds.includes(o.id));
 
-  // Task 1 & 2: Ensure explicit extraction and tracking of payment_methods
   const applyOrderToForm = (order, orderId, therapistsList) => {
       const firstService = order.details?.cart?.[0]?.name || '';
       const date = order.created_at ? new Date(order.created_at).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
@@ -335,18 +339,24 @@ const SatisfactionForm = ({
           if (t) tName = t.name;
       }
 
-      // Check all possible locations for payment_methods across Supabase table and JSONB details
-      const rawPm = order.payment_methods || order.details?.payment_methods || order.details?.customerDetails?.payment_methods || paymentMethods;
+      let rawPm = null;
+      
+      if (order.payment_methods && order.payment_methods.length > 0) {
+          rawPm = order.payment_methods;
+      } else if (order.details?.payment_methods && order.details.payment_methods.length > 0) {
+          rawPm = order.details.payment_methods;
+      } else if (order.details?.customerDetails?.payment_methods && order.details.customerDetails.payment_methods.length > 0) {
+          rawPm = order.details.customerDetails.payment_methods;
+      } else if (paymentMethods && paymentMethods.length > 0) {
+          rawPm = paymentMethods;
+      }
+      
       const pmArr = ensureArray(rawPm);
       
-      const rawPmNote = order.payment_method_note || order.details?.payment_method_note || order.details?.customerDetails?.payment_method_note || paymentNote || '';
-
-      console.log(`SatisfactionForm [Data Load] - Extracted from Order [${orderId}]:`, {
-          rawPaymentMethods: rawPm,
-          resolvedPaymentMethodsArray: pmArr,
-          resolvedPaymentNote: rawPmNote,
-          completeOrderObject: order
-      });
+      const rawPmNote = order.payment_method_note || 
+                       order.details?.payment_method_note || 
+                       order.details?.customerDetails?.payment_method_note || 
+                       paymentNote || '';
 
       setFormData(prev => ({
           ...prev,
@@ -357,18 +367,20 @@ const SatisfactionForm = ({
           therapistName: tName,
           guestType: order.guest_type || order.details?.guest_type || order.details?.guestType || prev.guestType,
           roomNo: order.room_no || order.details?.room_no || order.details?.roomNo || prev.roomNo,
+          timeIn: order.details?.timeIn || prev.timeIn,
+          timeOut: order.details?.timeOut || prev.timeOut,
           paymentMethods: pmArr.length > 0 ? pmArr : prev.paymentMethods,
           paymentNote: rawPmNote || prev.paymentNote
       }));
   };
 
   const handleOrderSelect = async (orderId) => {
-      const order = orders.find(o => o.reference_id === orderId);
+      const order = orders.find(o => (isUUID(orderId) ? o.id === orderId : o.reference_id === orderId));
       if (order) {
           applyOrderToForm(order, orderId, therapists);
           await checkExistingFeedback(orderId);
       } else {
-          setFormData(prev => ({ ...prev, booking_id: orderId || '', guestName: '', dateOfVisit: new Date().toISOString().split('T')[0], serviceAvailed: '', therapistName: '', paymentMethods: [], paymentNote: '' }));
+          setFormData(prev => ({ ...prev, booking_id: orderId || '', guestName: '', dateOfVisit: new Date().toISOString().split('T')[0], timeIn: '', timeOut: '', timeInOutQuestion: null, serviceAvailed: '', therapistName: '', paymentMethods: [], paymentNote: '' }));
           setHasExistingFeedback(false);
           setExistingFeedbackId(null);
           setShowUpdatePrompt(false);
@@ -415,17 +427,17 @@ const SatisfactionForm = ({
     setIsSubmitting(true);
     const targetBookingId = formData.booking_id || bookingId;
     
-    // Explicitly add payment information to the details JSON that gets saved
     const submissionData = { 
         ...formData, 
         booking_id: targetBookingId, 
         guest_type: formData.guestType, 
         room_no: formData.roomNo,
+        timeInOutQuestion: formData.timeInOutQuestion,
+        timeIn: formData.timeIn,
+        timeOut: formData.timeOut,
         payment_methods: formData.paymentMethods,
         payment_method_note: formData.paymentNote
     };
-
-    console.log("SatisfactionForm [Submit] - Preparing feedback payload:", submissionData);
 
     try {
         const feedbackRecord = {
@@ -460,7 +472,7 @@ const SatisfactionForm = ({
         if (onSubmit) onSubmit(submissionData);
 
         setSubmittedFeedback(feedbackRecord);
-        const order = orders.find(o => o.reference_id === targetBookingId);
+        const order = orders.find(o => (isUUID(targetBookingId) ? o.id === targetBookingId : o.reference_id === targetBookingId));
         setSubmittedOrder(order);
         await fetchFeedbacksList(); 
 
@@ -491,8 +503,14 @@ const SatisfactionForm = ({
       </div>;
   };
 
-  const renderTherapistQuestion = (key, questionText) => {
-    const current = formData.therapistFeedback[key];
+  const renderTherapistQuestion = (key, questionText, requireCondition = null, customPlaceholder = "Additional comments (optional)") => {
+    const current = formData.therapistFeedback[key] || { value: null, comment: '' };
+    
+    // Determine whether to show the text input field
+    // If requireCondition is provided (e.g. 'no'), it will only show if current.value matches it
+    // If requireCondition is null, it always shows the input
+    const showInput = requireCondition ? current.value === requireCondition : true;
+
     return (
         <div className="space-y-3 p-4 rounded-lg border border-[#e5ddd5] bg-[#fdfbf7]">
             <Label className="text-base font-medium text-[#5a4a3a]">{questionText}</Label>
@@ -516,28 +534,24 @@ const SatisfactionForm = ({
                     <span className="text-sm text-[#5a4a3a]">No</span>
                 </label>
             </div>
-            <div className="pt-2">
-                <Input placeholder="Additional comments (optional)" value={current.comment} onChange={(e) => handleTherapistFeedbackChange(key, 'comment', e.target.value)} className="bg-white border-[#d4a574]/30 focus-visible:ring-[#8b7355]" />
-            </div>
+            
+            <AnimatePresence>
+                {showInput && (
+                    <motion.div 
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="pt-2 overflow-hidden"
+                    >
+                        <Input placeholder={customPlaceholder} value={current.comment} onChange={(e) => handleTherapistFeedbackChange(key, 'comment', e.target.value)} className="bg-white border-[#d4a574]/30 focus-visible:ring-[#8b7355]" />
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
   };
 
-  // Task 6: Add validation checks and comprehensive logging before passing data to Modal
   const handlePrintModalOpen = () => {
-      const resolvedPmMethods = formData.paymentMethods?.length > 0 ? formData.paymentMethods : ensureArray(paymentMethods);
-      const resolvedPmNote = formData.paymentNote || paymentNote || submittedOrder?.payment_method_note || '';
-      
-      console.log("SatisfactionForm [Action: Open Print Modal] - Validating data pass:");
-      console.log(" - source: formData.paymentMethods:", formData.paymentMethods);
-      console.log(" - source: props.paymentMethods:", paymentMethods);
-      console.log(" -> Output paymentMethods to Modal:", resolvedPmMethods);
-      console.log(" -> Output paymentNote to Modal:", resolvedPmNote);
-      
-      if (!resolvedPmMethods || resolvedPmMethods.length === 0) {
-          console.warn("SatisfactionForm Warning: payment_methods array is empty right before opening print modal!");
-      }
-      
       setShowPrintModal(true);
   };
 
@@ -661,6 +675,10 @@ const SatisfactionForm = ({
                      <div className="grid grid-cols-2 gap-y-1 print:text-[10px]">
                          <div><strong>Name:</strong> {formData.guestName || '_______________'}</div>
                          <div><strong>Date:</strong> {formData.dateOfVisit || '_______________'}</div>
+                         <div><strong>Time In/Out Asked?:</strong> <span className="capitalize">{formData.timeInOutQuestion || 'N/A'}</span></div>
+                         <div></div>
+                         <div><strong>Time In:</strong> {formData.timeIn || '_______________'}</div>
+                         <div><strong>Time Out:</strong> {formData.timeOut || '_______________'}</div>
                          <div><strong>Guest Type:</strong> {formData.guestType || '_______________'}</div>
                          <div><strong>Service:</strong> {formData.serviceAvailed || '_______________'}</div>
                          <div><strong>Room:</strong> {formData.roomNumber || '_______________'}</div>
@@ -759,13 +777,51 @@ const SatisfactionForm = ({
                       <Label htmlFor="dateOfVisit">Date of Visit</Label>
                       <Input id="dateOfVisit" type="date" value={formData.dateOfVisit} onChange={e => setFormData({ ...formData, dateOfVisit: e.target.value })} className="bg-white border-[#d4a574]/30 focus-visible:ring-[#8b7355]" />
                     </div>
+
+                    <div className="space-y-4 sm:col-span-2 p-4 rounded-md border border-[#d4a574]/30 bg-[#fdfbf7]">
+                        <div>
+                            <Label className="text-base font-medium text-[#5a4a3a]">Time In and Time Out?</Label>
+                            <div className="flex items-center gap-6 mt-2">
+                                <label className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
+                                    <div className="relative flex items-center">
+                                        <input type="radio" name="timeInOutQuestion" checked={formData.timeInOutQuestion === 'yes'} onChange={() => setFormData({ ...formData, timeInOutQuestion: 'yes' })} className="peer h-5 w-5 cursor-pointer appearance-none rounded-full border border-[#d4a574] checked:border-[#8b7355] checked:bg-[#8b7355] transition-all" />
+                                        <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 peer-checked:opacity-100">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><circle cx="10" cy="10" r="3" /></svg>
+                                        </div>
+                                    </div>
+                                    <span className="text-sm text-[#5a4a3a]">Yes</span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
+                                    <div className="relative flex items-center">
+                                        <input type="radio" name="timeInOutQuestion" checked={formData.timeInOutQuestion === 'no'} onChange={() => setFormData({ ...formData, timeInOutQuestion: 'no' })} className="peer h-5 w-5 cursor-pointer appearance-none rounded-full border border-[#d4a574] checked:border-[#8b7355] checked:bg-[#8b7355] transition-all" />
+                                        <div className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-white opacity-0 peer-checked:opacity-100">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><circle cx="10" cy="10" r="3" /></svg>
+                                        </div>
+                                    </div>
+                                    <span className="text-sm text-[#5a4a3a]">No</span>
+                                </label>
+                            </div>
+                        </div>
+
+                        {/* Unconditional Time Fields Block */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-[#d4a574]/20">
+                            <div className="space-y-2">
+                              <Label htmlFor="timeIn">Time In</Label>
+                              <Input id="timeIn" type="time" value={formData.timeIn} onChange={e => setFormData({ ...formData, timeIn: e.target.value })} className="bg-white border-[#d4a574]/30 focus-visible:ring-[#8b7355]" />
+                            </div>
+                            <div className="space-y-2">
+                              <Label htmlFor="timeOut">Time Out</Label>
+                              <Input id="timeOut" type="time" value={formData.timeOut} onChange={e => setFormData({ ...formData, timeOut: e.target.value })} className="bg-white border-[#d4a574]/30 focus-visible:ring-[#8b7355]" />
+                            </div>
+                        </div>
+                    </div>
                     
-                    <div className="space-y-2">
+                    <div className="space-y-2 sm:col-span-2">
                       <Label htmlFor="serviceAvailed">Service Availed</Label>
                       <Input id="serviceAvailed" value={formData.serviceAvailed} onChange={e => setFormData({ ...formData, serviceAvailed: e.target.value })} placeholder="Type of service" className="flex h-10 w-full rounded-md border border-[#d4a574]/30 bg-white px-3 py-2 text-sm focus-visible:ring-[#8b7355]" />
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-2 sm:col-span-2">
                       <Label htmlFor="therapistName" className="flex items-center gap-1"><UserCog className="h-3 w-3" /> Attending Therapist</Label>
                       <select id="therapistName" value={formData.therapistName} onChange={e => setFormData({ ...formData, therapistName: e.target.value })} className="flex h-10 w-full rounded-md border border-[#d4a574]/30 bg-white px-3 py-2 text-sm focus-visible:ring-[#8b7355]">
                         <option value="">Unknown / Not Listed</option>
