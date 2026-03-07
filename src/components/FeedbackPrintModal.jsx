@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Printer, X, AlertCircle } from 'lucide-react';
@@ -55,6 +54,7 @@ export default function FeedbackPrintModal({ feedback, order: initialOrder, allO
     console.log("Prop received - feedback object:", feedback);
     console.log("Prop received - order object (initial):", initialOrder);
     console.log("Prop received - paymentMethods:", passedPaymentMethods);
+    console.log("Prop received - paymentNote:", passedPaymentNote);
     console.log("Prop received - allOrders array length:", allOrders?.length, "structure:", allOrders);
     console.groupEnd();
 
@@ -138,34 +138,57 @@ export default function FeedbackPrintModal({ feedback, order: initialOrder, allO
     console.log("Raw order.payment_methods (plural):", order?.payment_methods);
     console.log("Raw order.payment_method (singular):", order?.payment_method);
     console.log("Raw order.payment_method_note:", order?.payment_method_note);
+    console.log("Raw orderDetails.payment_methods:", orderDetails?.payment_methods);
     console.log("Passed props.paymentMethods:", passedPaymentMethods);
     console.log("Passed props.paymentNote:", passedPaymentNote);
     console.log("Feedback details.payment_methods:", details?.payment_methods);
+    console.log("Feedback details.paymentMethods:", details?.paymentMethods);
+    console.log("Customer payment_methods:", customer?.payment_methods);
 
-    // 3. Fallback extraction logic
+    // 3. ✅ IMPROVED Fallback extraction logic with priority order
     let rawPmArray = [];
+
+    // Priority 1: Props passed from parent (most reliable - already processed by SatisfactionForm)
     if (passedPaymentMethods !== undefined && passedPaymentMethods !== null && ensureArray(passedPaymentMethods).length > 0) {
         rawPmArray = passedPaymentMethods;
         console.log("-> Using passedPaymentMethods prop:", rawPmArray);
-    } else if (order?.payment_methods && ensureArray(order.payment_methods).length > 0) {
+    }
+    // Priority 2: Direct order.payment_methods column from database
+    else if (order?.payment_methods && ensureArray(order.payment_methods).length > 0) {
         rawPmArray = order.payment_methods;
         console.log("-> Falling back to order.payment_methods:", rawPmArray);
-    } else if (order?.payment_method && ensureArray(order.payment_method).length > 0) {
-        rawPmArray = order.payment_method;
-        console.log("-> Falling back to order.payment_method (singular):", rawPmArray);
-    } else if (details?.payment_methods && ensureArray(details.payment_methods).length > 0) {
+    }
+    // Priority 3: Order details nested payment_methods
+    else if (orderDetails?.payment_methods && ensureArray(orderDetails.payment_methods).length > 0) {
+        rawPmArray = orderDetails.payment_methods;
+        console.log("-> Falling back to orderDetails.payment_methods:", rawPmArray);
+    }
+    // Priority 4: Feedback details payment_methods (snake_case)
+    else if (details?.payment_methods && ensureArray(details.payment_methods).length > 0) {
         rawPmArray = details.payment_methods;
         console.log("-> Falling back to feedback.details.payment_methods:", rawPmArray);
-    } else if (details?.paymentMethods && ensureArray(details.paymentMethods).length > 0) {
+    }
+    // Priority 5: Alternative naming (paymentMethods camelCase)
+    else if (details?.paymentMethods && ensureArray(details.paymentMethods).length > 0) {
         rawPmArray = details.paymentMethods;
         console.log("-> Falling back to feedback.details.paymentMethods:", rawPmArray);
-    } else if (customer?.payment_methods && ensureArray(customer.payment_methods).length > 0) {
+    }
+    // Priority 6: Customer details payment_methods
+    else if (customer?.payment_methods && ensureArray(customer.payment_methods).length > 0) {
         rawPmArray = customer.payment_methods;
         console.log("-> Falling back to customer.payment_methods:", rawPmArray);
-    } else if (details?.paymentMethod) {
+    }
+    // Priority 7: Singular payment_method (legacy support)
+    else if (order?.payment_method && ensureArray(order.payment_method).length > 0) {
+        rawPmArray = order.payment_method;
+        console.log("-> Falling back to order.payment_method (singular):", rawPmArray);
+    }
+    // Priority 8: Details singular paymentMethod
+    else if (details?.paymentMethod) {
         rawPmArray = [details.paymentMethod];
         console.log("-> Falling back to details.paymentMethod (singular):", rawPmArray);
-    } else {
+    }
+    else {
         console.log("-> No payment methods found across all sources.");
     }
     
@@ -197,6 +220,21 @@ export default function FeedbackPrintModal({ feedback, order: initialOrder, allO
 
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm print:bg-white print:p-0 print:static print:block print:inset-auto">
+        <style>
+          {`
+            @media print {
+              @page { 
+                size: letter landscape; 
+                margin: 0.5in; 
+              }
+              body { 
+                print-color-adjust: exact; 
+                -webkit-print-color-adjust: exact; 
+                background-color: white !important;
+              }
+            }
+          `}
+        </style>
         <motion.div 
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -220,11 +258,11 @@ export default function FeedbackPrintModal({ feedback, order: initialOrder, allO
               </div>
            </div>
 
-           <div className="p-6 sm:p-8 space-y-8 print:p-0 print:space-y-4 bg-white print:font-sans print:h-full print:flex print:flex-col print:justify-between">
+           <div className="p-6 sm:p-8 space-y-6 print:p-0 print:space-y-3 bg-white print:font-sans print:h-full print:flex print:flex-col print:justify-between">
               
               <div>
-                {/* 5. Print Header Call */}
-                <div className="mb-4 pt-2">
+                {/* Print Header Call */}
+                <div className="mb-4 pt-2 print:mb-2">
                     <PrintHeader 
                       title="SERVICE SLIP" 
                       logo={LEMA_LOGO} 
@@ -237,7 +275,7 @@ export default function FeedbackPrintModal({ feedback, order: initialOrder, allO
                 </div>
 
                 {/* Header Info */}
-                <div className="flex justify-between items-end border-b-2 border-[#f5f1ed] pb-4 print:border-black print:mt-2 print:pb-2">
+                <div className="flex justify-between items-end border-b-2 border-[#f5f1ed] pb-4 print:border-black print:mt-1 print:pb-2">
                     <div>
                         <h2 className="text-2xl font-mono font-bold text-[#5a4a3a] print:text-black print:text-xl">Ref: {feedback.booking_id || feedback.reference_id || feedback.id}</h2>
                     </div>
@@ -248,32 +286,32 @@ export default function FeedbackPrintModal({ feedback, order: initialOrder, allO
                 </div>
 
                 {/* Landscape Grid Layout for Content */}
-                <div className="print:grid print:grid-cols-[35%_65%] print:gap-8 print:mt-4">
+                <div className="print:grid print:grid-cols-[35%_65%] print:gap-6 print:mt-3">
                   
                   {/* Left Column */}
-                  <div className="flex flex-col gap-6 print:gap-4">
+                  <div className="flex flex-col gap-6 print:gap-3">
                       {/* Customer Information Box */}
                       <div>
-                          <h3 className="text-sm font-bold text-[#7a6a5a] uppercase tracking-wider mb-3 print:mb-2 print:text-black">Customer Information</h3>
-                          <div className="grid grid-cols-2 gap-4 bg-[#fdfbf7] p-4 rounded-lg border border-[#e5ddd5] print:grid-cols-1 print:bg-white print:border-black print:p-3 print:gap-1.5 print:text-sm">
-                            <div className="space-y-1 print:space-y-0 print:flex print:justify-between print:items-start border-b border-transparent print:border-gray-200 print:pb-1">
-                                <span className="text-[10px] font-bold text-gray-400 uppercase print:text-gray-600 print:text-[11px]">Name</span>
+                          <h3 className="text-sm font-bold text-[#7a6a5a] uppercase tracking-wider mb-3 print:mb-1.5 print:text-black print:text-xs">Customer Information</h3>
+                          <div className="grid grid-cols-2 gap-4 bg-[#fdfbf7] p-4 rounded-lg border border-[#e5ddd5] print:grid-cols-1 print:bg-white print:border-black print:p-2.5 print:gap-1 print:text-[11px]">
+                            <div className="space-y-1 print:space-y-0 print:flex print:justify-between print:items-start border-b border-transparent print:border-gray-200 print:pb-0.5">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase print:text-gray-600 print:text-[9px]">Name</span>
                                 <span className="font-medium text-[#5a4a3a] print:text-black leading-tight text-right">{guestName}</span>
                             </div>
-                            <div className="space-y-1 print:space-y-0 print:flex print:justify-between print:items-start border-b border-transparent print:border-gray-200 print:pb-1">
-                                <span className="text-[10px] font-bold text-gray-400 uppercase print:text-gray-600 print:text-[11px]">Email</span>
+                            <div className="space-y-1 print:space-y-0 print:flex print:justify-between print:items-start border-b border-transparent print:border-gray-200 print:pb-0.5">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase print:text-gray-600 print:text-[9px]">Email</span>
                                 <span className="font-medium text-[#5a4a3a] print:text-black leading-tight truncate text-right">{email}</span>
                             </div>
-                            <div className="space-y-1 print:space-y-0 print:flex print:justify-between print:items-start border-b border-transparent print:border-gray-200 print:pb-1">
-                                <span className="text-[10px] font-bold text-gray-400 uppercase print:text-gray-600 print:text-[11px]">Phone</span>
+                            <div className="space-y-1 print:space-y-0 print:flex print:justify-between print:items-start border-b border-transparent print:border-gray-200 print:pb-0.5">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase print:text-gray-600 print:text-[9px]">Phone</span>
                                 <span className="font-medium text-[#5a4a3a] print:text-black leading-tight text-right">{phone}</span>
                             </div>
-                            <div className="space-y-1 print:space-y-0 print:flex print:justify-between print:items-start border-b border-transparent print:border-gray-200 print:pb-1">
-                                <span className="text-[10px] font-bold text-gray-400 uppercase print:text-gray-600 print:text-[11px]">Guest Type</span>
+                            <div className="space-y-1 print:space-y-0 print:flex print:justify-between print:items-start border-b border-transparent print:border-gray-200 print:pb-0.5">
+                                <span className="text-[10px] font-bold text-gray-400 uppercase print:text-gray-600 print:text-[9px]">Guest Type</span>
                                 <span className="font-medium text-[#5a4a3a] print:text-black leading-tight text-right">{guestType}</span>
                             </div>
                             <div className="space-y-1 print:space-y-0 print:flex print:justify-between print:items-start">
-                                <span className="text-[10px] font-bold text-gray-400 uppercase print:text-gray-600 print:text-[11px]">Room No</span>
+                                <span className="text-[10px] font-bold text-gray-400 uppercase print:text-gray-600 print:text-[9px]">Room No</span>
                                 <span className="font-medium text-[#5a4a3a] print:text-black leading-tight text-right">{roomNo}</span>
                             </div>
                           </div>
@@ -281,14 +319,14 @@ export default function FeedbackPrintModal({ feedback, order: initialOrder, allO
 
                       {/* Service Time Tracking */}
                       <div>
-                          <h3 className="text-sm font-bold text-[#7a6a5a] uppercase tracking-wider mb-3 print:mb-2 print:text-black">Time Tracking</h3>
-                          <div className="grid grid-cols-1 gap-4 p-4 rounded-lg border border-[#e5ddd5] print:border-black print:p-3 print:gap-3">
+                          <h3 className="text-sm font-bold text-[#7a6a5a] uppercase tracking-wider mb-3 print:mb-1.5 print:text-black print:text-xs">Time Tracking</h3>
+                          <div className="grid grid-cols-1 gap-4 p-4 rounded-lg border border-[#e5ddd5] print:border-black print:p-2.5 print:gap-2.5">
                             <div className="flex items-end gap-3">
-                                <span className="font-bold text-[#5a4a3a] print:text-black whitespace-nowrap print:text-sm">Time In:</span>
+                                <span className="font-bold text-[#5a4a3a] print:text-black whitespace-nowrap print:text-[11px]">Time In:</span>
                                 <div className="flex-grow border-b border-dashed border-gray-300 print:border-black"></div>
                             </div>
-                            <div className="flex items-end gap-3 pt-2 print:pt-1">
-                                <span className="font-bold text-[#5a4a3a] print:text-black whitespace-nowrap print:text-sm">Time Out:</span>
+                            <div className="flex items-end gap-3 pt-2 print:pt-0.5">
+                                <span className="font-bold text-[#5a4a3a] print:text-black whitespace-nowrap print:text-[11px]">Time Out:</span>
                                 <div className="flex-grow border-b border-dashed border-gray-300 print:border-black"></div>
                             </div>
                           </div>
@@ -296,30 +334,30 @@ export default function FeedbackPrintModal({ feedback, order: initialOrder, allO
                   </div>
 
                   {/* Right Column */}
-                  <div className="flex flex-col gap-6 print:gap-4 mt-6 print:mt-0">
+                  <div className="flex flex-col gap-6 print:gap-3 mt-6 print:mt-0">
                       {/* Services Ordered */}
                       <div>
-                        <h3 className="text-sm font-bold text-[#7a6a5a] uppercase tracking-wider mb-3 print:mb-2 print:text-black">Services Ordered</h3>
+                        <h3 className="text-sm font-bold text-[#7a6a5a] uppercase tracking-wider mb-3 print:mb-1.5 print:text-black print:text-xs">Services Ordered</h3>
                         <div className="overflow-x-auto print:overflow-visible">
-                            <table className="w-full text-sm text-left border-collapse print:text-[13px]">
+                            <table className="w-full text-sm text-left border-collapse print:text-[11px]">
                               <thead>
                                   <tr className="border-y-2 border-[#e5ddd5] text-[#7a6a5a] print:border-black print:text-black">
-                                    <th className="py-2 px-2 font-bold w-[50%]">Service</th>
-                                    <th className="py-2 px-2 font-bold text-center w-[15%]">Qty</th>
-                                    <th className="py-2 px-2 font-bold text-right w-[15%]">Price</th>
-                                    <th className="py-2 px-2 font-bold text-right w-[20%]">Total</th>
+                                    <th className="py-2 px-2 font-bold w-[50%] print:py-1 print:px-1.5">Service</th>
+                                    <th className="py-2 px-2 font-bold text-center w-[15%] print:py-1 print:px-1.5">Qty</th>
+                                    <th className="py-2 px-2 font-bold text-right w-[15%] print:py-1 print:px-1.5">Price</th>
+                                    <th className="py-2 px-2 font-bold text-right w-[20%] print:py-1 print:px-1.5">Total</th>
                                   </tr>
                               </thead>
                               <tbody className="text-[#5a4a3a] print:text-black">
                                   {cart.length > 0 ? cart.map((item, idx) => (
                                     <tr key={idx} className="border-b border-[#f5f1ed] print:border-gray-300">
-                                        <td className="py-2.5 px-2">
+                                        <td className="py-2.5 px-2 print:py-1 print:px-1.5">
                                           <p className="font-medium leading-tight">{item.name}</p>
-                                          <p className="text-xs text-[#7a6a5a] print:text-gray-600 mt-0.5">{item.duration}</p>
+                                          <p className="text-xs text-[#7a6a5a] print:text-gray-600 mt-0.5 print:text-[9px]">{item.duration}</p>
                                         </td>
-                                        <td className="py-2.5 px-2 text-center align-top">{item.quantity}</td>
-                                        <td className="py-2.5 px-2 text-right align-top">₱{item.price?.toLocaleString()}</td>
-                                        <td className="py-2.5 px-2 text-right font-medium align-top">₱{(item.price * item.quantity).toLocaleString()}</td>
+                                        <td className="py-2.5 px-2 text-center align-top print:py-1 print:px-1.5">{item.quantity}</td>
+                                        <td className="py-2.5 px-2 text-right align-top print:py-1 print:px-1.5">₱{item.price?.toLocaleString()}</td>
+                                        <td className="py-2.5 px-2 text-right font-medium align-top print:py-1 print:px-1.5">₱{(item.price * item.quantity).toLocaleString()}</td>
                                     </tr>
                                   )) : (
                                       <tr>
@@ -332,39 +370,39 @@ export default function FeedbackPrintModal({ feedback, order: initialOrder, allO
                       </div>
 
                       {/* Financial Summary */}
-                      <div className="border-t-2 border-[#e5ddd5] pt-4 flex flex-col items-end print:border-black print:pt-3 print:mt-2 h-full justify-end">
-                        <div className="w-full sm:w-72 print:w-64 space-y-2 text-[#5a4a3a] print:text-black">
-                            <div className="flex justify-between text-sm">
+                      <div className="border-t-2 border-[#e5ddd5] pt-4 flex flex-col items-end print:border-black print:pt-2 print:mt-1 h-full justify-end">
+                        <div className="w-full sm:w-72 print:w-56 space-y-2 text-[#5a4a3a] print:text-black print:space-y-1 print:text-[11px]">
+                            <div className="flex justify-between text-sm print:text-[11px]">
                               <span className="font-medium text-[#7a6a5a] print:text-gray-700">Subtotal:</span>
                               <span className="font-medium">₱{basePrice.toLocaleString()}</span>
                             </div>
                             {hasDiscount && (
-                              <div className="flex justify-between text-sm text-green-600 print:text-gray-700">
+                              <div className="flex justify-between text-sm text-green-600 print:text-gray-700 print:text-[11px]">
                                   <span className="font-medium">Discount ({details.discount?.percentage || customer.discount?.percentage}%):</span>
                                   <span className="font-medium">-₱{discountAmount.toLocaleString()}</span>
                               </div>
                             )}
-                            <div className="flex justify-between text-sm">
+                            <div className="flex justify-between text-sm print:text-[11px]">
                               <span className="font-medium text-[#7a6a5a] print:text-gray-700">Tip / Gratuity:</span>
                               <span className="font-medium">₱{Number(tipAmount).toLocaleString()}</span>
                             </div>
-                            <div className="flex justify-between text-xl print:text-lg font-bold text-[#5a4a3a] pt-3 border-t border-[#8b7355] mt-2 print:border-black print:text-black">
+                            <div className="flex justify-between text-xl print:text-base font-bold text-[#5a4a3a] pt-3 border-t border-[#8b7355] mt-2 print:border-black print:text-black print:pt-1.5 print:mt-1">
                               <span>Total:</span>
                               <span>₱{finalTotal.toLocaleString()}</span>
                             </div>
                         </div>
 
                         {/* Payment Method Section - Local fallback display */}
-                        <div className="w-full sm:w-72 print:w-64 mt-4 pt-4 border-t border-[#e5ddd5] print:border-gray-300">
-                            <div className="flex flex-col text-sm text-[#5a4a3a] print:text-black">
+                        <div className="w-full sm:w-72 print:w-56 mt-4 pt-4 border-t border-[#e5ddd5] print:border-gray-300 print:mt-2 print:pt-2">
+                            <div className="flex flex-col text-sm text-[#5a4a3a] print:text-black print:text-[10px]">
                                 <div className="flex justify-between items-start">
-                                    <span className="font-bold text-[#7a6a5a] print:text-black uppercase tracking-wider text-xs print:text-[10px]">Payment Methods:</span>
-                                    <span className={`font-medium text-sm print:text-xs text-right break-words max-w-[60%] ${isMissingPaymentMethods ? 'text-gray-400 italic' : ''}`}>
+                                    <span className="font-bold text-[#7a6a5a] print:text-black uppercase tracking-wider text-xs print:text-[9px]">Payment Methods:</span>
+                                    <span className={`font-medium text-sm print:text-[10px] text-right break-words max-w-[60%] ${isMissingPaymentMethods ? 'text-gray-400 italic' : ''}`}>
                                         {displayPaymentMethodsStr}
                                     </span>
                                 </div>
                                 {pmNote && (
-                                    <div className="mt-1 text-right text-xs text-gray-500 italic print:text-[10px] break-words">
+                                    <div className="mt-1 text-right text-xs text-gray-500 italic print:text-[9px] break-words">
                                         Note: {pmNote}
                                     </div>
                                 )}
@@ -377,9 +415,9 @@ export default function FeedbackPrintModal({ feedback, order: initialOrder, allO
               </div>
 
               {/* Footer text */}
-              <div className="text-center mt-8 pt-4 border-t border-[#f5f1ed] text-[#7a6a5a] print:border-black print:text-black print:mt-4 print:pt-2">
-                  <p className="text-sm print:text-xs italic font-serif">Thank you for visiting Lema Filipino Spa.</p>
-                  <p className="text-xs print:text-[10px] mt-1">This document serves as your service slip reference.</p>
+              <div className="text-center mt-8 pt-4 border-t border-[#f5f1ed] text-[#7a6a5a] print:border-black print:text-black print:mt-3 print:pt-2">
+                  <p className="text-sm print:text-[10px] italic font-serif">Thank you for visiting Lema Filipino Spa.</p>
+                  <p className="text-xs print:text-[9px] mt-1">This document serves as your service slip reference.</p>
               </div>
 
            </div>
