@@ -335,35 +335,14 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
   
   const OrderDetailsModal = ({ order, onClose }) => {
     const { feedback } = useBookingFeedback(order?.id, order?.reference_id);
-    
-    
     const [fetchedOrder, setFetchedOrder] = useState(order);
     
     useEffect(() => {
-      console.group(`[AdminDashboard OrderDetailsModal Debug] Order Selected`);
-      
       const fetchFullOrderAndTherapist = async () => {
-        // 1. Check incoming object fields
-        const orderCopy = order ? JSON.parse(JSON.stringify(order)) : null;
-        console.log("[1. Initial Prop] Raw order object from parent:", orderCopy);
-
-        // 2. Determine best reference field
-        const refFieldUsed = order?.reference_id ? 'reference_id' : 
-                             (order?.id ? 'id' : 
-                             (order?.booking_id ? 'booking_id' : 
-                             (order?.order_id ? 'order_id' : null)));
-                             
         const orderRef = order?.reference_id || order?.id || order?.booking_id || order?.order_id;
-
-        // 3. Early exit if no valid ref
-        if (!orderRef) {
-            console.error("[Error] No valid identifier (reference_id, id, booking_id, order_id) found in order object.");
-            console.groupEnd();
-            return;
-        }
+        if (!orderRef) return;
 
         try {
-          // Build query dynamically based on the UUID detection
           let query = supabase.from('orders').select('*');
           if (isUUID(orderRef)) {
               query = query.eq('id', orderRef);
@@ -372,49 +351,13 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
           }
 
           const { data: orderData, error: orderError } = await query.single();
-          
           if (orderError) throw orderError;
           
-          // COMPREHENSIVE LOGGING FOR TASK 1
-          console.log('--- EXHAUSTIVE ORDER LOGGING ---');
-          console.log('COMPLETE ORDER DATA:', JSON.stringify(orderData, null, 2));
-          console.log('ORDER KEYS:', Object.keys(orderData || {}));
-          console.log('DETAILS OBJECT:', JSON.stringify(orderData?.details, null, 2));
-          
-          console.log('--- INDIVIDUAL TOP-LEVEL FIELDS ---');
-          console.log('reference_id:', orderData?.reference_id);
-          console.log('customer_name:', orderData?.customer_name);
-          console.log('customer_email:', orderData?.customer_email);
-          console.log('total_price:', orderData?.total_price);
-          console.log('status:', orderData?.status);
-          console.log('therapist_id:', orderData?.therapist_id);
-          console.log('payment_method:', orderData?.payment_method);
-          console.log('payment_methods:', orderData?.payment_methods);
-          console.log('payment_method_note:', orderData?.payment_method_note);
-          console.log('created_at:', orderData?.created_at);
-          
-          if (orderData?.details) {
-            console.log('--- DETAILS FIELDS ---');
-            console.log('details.guest_type:', orderData.details.guest_type);
-            console.log('details.room_no:', orderData.details.room_no);
-            console.log('details.guestType:', orderData.details.guestType);
-            console.log('details.roomNo:', orderData.details.roomNo);
-            console.log('details.room_number:', orderData.details.room_number);
-            console.log('ALL DETAILS KEYS:', Object.keys(orderData.details || {}));
-          }
-          console.log('-----------------------------------');
-          
           let mergedOrder = { ...orderData };
-
-          // Identify therapist ID from various potential locations
-          const dbColumnId = orderData.therapist_id;
-          const detailsId = orderData.details?.therapist_id;
-          const nestedDetailsId = orderData.details?.therapist?.id;
-
-          const targetTherapistId = dbColumnId || detailsId || nestedDetailsId;
+          const targetTherapistId = orderData.therapist_id || orderData.details?.therapist_id || orderData.details?.therapist?.id;
 
           if (targetTherapistId) {
-            const { data: therapistData, error: therapistError } = await supabase
+            const { data: therapistData } = await supabase
               .from('therapists')
               .select('*')
               .eq('id', targetTherapistId)
@@ -422,20 +365,15 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
 
             if (therapistData) {
               mergedOrder.therapist = therapistData;
-              mergedOrder.therapists = therapistData; // Add to both for compatibility
+              mergedOrder.therapists = therapistData;
             }
           }
-          
           setFetchedOrder(mergedOrder);
-          
         } catch (err) {
-          console.error(`[Error] fetchFullOrderAndTherapist failed for value ${orderRef}:`, err);
-          setFetchedOrder(order); // fallback to prop
-        } finally {
-          console.groupEnd();
+          console.error(`fetchFullOrderAndTherapist failed:`, err);
+          setFetchedOrder(order);
         }
       };
-      
       fetchFullOrderAndTherapist();
     }, [order]);
 
@@ -450,14 +388,12 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
     const discountAmount = hasDiscount ? basePrice * details.discount.percentage / 100 : 0;
     const finalTotal = Number(fetchedOrder.total_price || order.totalPrice || 0) + Number(tipAmount);
     
-    // EXHAUSTIVE EXTRACTION FOR TASK 2
     const rawGuestType = fetchedOrder?.guest_type 
                       || fetchedOrder?.guestType 
                       || details?.guest_type 
                       || details?.guestType 
                       || details?.customerDetails?.guestType 
                       || customerDetails?.guestType
-                      || fetchedOrder?.customerDetails?.guestType
                       || "";
                       
     const rawRoomNo = fetchedOrder?.room_no 
@@ -468,16 +404,12 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
                    || details?.roomNumber 
                    || details?.room_number 
                    || details?.customerDetails?.roomNo 
-                   || details?.customerDetails?.roomNumber
                    || customerDetails?.roomNo
-                   || customerDetails?.roomNumber
-                   || fetchedOrder?.customerDetails?.roomNo
                    || "";
                    
     const guestType = rawGuestType && rawGuestType !== "N/A" ? rawGuestType : "\u00A0";
     const roomNo = rawRoomNo && rawRoomNo !== "N/A" ? rawRoomNo : "\u00A0";
     
-    // Helper function to safely convert payment methods to array
     const ensureArray = (val) => {
         if (!val) return [];
         if (Array.isArray(val)) return val;
@@ -492,60 +424,32 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
         return [String(val)];
     };
 
-    // 2. Logging specific order structure for payment
-    console.group("=== PAYMENT METHODS EXTRACTION DEBUG ===");
-    console.log("Raw fetchedOrder.payment_methods (plural):", fetchedOrder?.payment_methods);
-    console.log("Raw fetchedOrder.payment_method (singular):", fetchedOrder?.payment_method);
-    console.log("Raw fetchedOrder.payment_method_note:", fetchedOrder?.payment_method_note);
-    console.log("Raw details.payment_methods:", details?.payment_methods);
-    console.log("Raw customerDetails.payment_methods:", customerDetails?.payment_methods);
-    
-    // 3. ✅ IMPROVED Fallback extraction logic with priority order
     let rawPmArray = [];
-    // Priority 1: Direct order.payment_methods column from database
     if (fetchedOrder?.payment_methods && ensureArray(fetchedOrder.payment_methods).length > 0) {
       rawPmArray = fetchedOrder.payment_methods;
-      console.log("--> Using fetchedOrder.payment_methods:", rawPmArray);
-    }
-    // Priority 2: Order details nested payment_methods
-    else if (details?.payment_methods && ensureArray(details.payment_methods).length > 0) {
+    } else if (details?.payment_methods && ensureArray(details.payment_methods).length > 0) {
       rawPmArray = details.payment_methods;
-      console.log("--> Falling back to details.payment_methods:", rawPmArray);
-    }
-    // Priority 3: Alternative naming (paymentMethods camelCase)
-    else if (details?.paymentMethods && ensureArray(details.paymentMethods).length > 0) {
+    } else if (details?.paymentMethods && ensureArray(details.paymentMethods).length > 0) {
       rawPmArray = details.paymentMethods;
-      console.log("--> Falling back to details.paymentMethods:", rawPmArray);
-    }
-    // Priority 4: Customer details payment_methods
-    else if (customerDetails?.payment_methods && ensureArray(customerDetails.payment_methods).length > 0) {
+    } else if (customerDetails?.payment_methods && ensureArray(customerDetails.payment_methods).length > 0) {
       rawPmArray = customerDetails.payment_methods;
-      console.log("--> Falling back to customerDetails.payment_methods:", rawPmArray);
-    }
-    // Priority 5: Singular payment_method (legacy support)
-    else if (fetchedOrder?.payment_method && ensureArray(fetchedOrder.payment_method).length > 0) {
+    } else if (fetchedOrder?.payment_method && ensureArray(fetchedOrder.payment_method).length > 0) {
       rawPmArray = fetchedOrder.payment_method;
-      console.log("--> Falling back to fetchedOrder.payment_method (singular):", rawPmArray);
     }
-    else {
-      console.log("--> No payment methods found across all sources.");
-    }
-    
-    // Safely force to an array of valid strings
     const pmArray = ensureArray(rawPmArray);
-        
-    console.log("--> Final resolved pmArray BEFORE rendering:", pmArray);
 
-    
-    // Compute therapist name logically based on all sources
+    // RESTORED: Restore pmNote variable definition with proper fallback logic
+    const pmNote = fetchedOrder?.payment_method_note 
+                || details?.payment_method_note 
+                || customerDetails?.payment_method_note 
+                || "";
+
     const displayTherapistName = fetchedOrder?.therapist?.name 
                               || fetchedOrder?.therapists?.name 
                               || details?.therapistName 
                               || order?.therapist?.name
-                              || order?.therapists?.name
                               || "Not assigned";
     
-    // Extract feedback details for Time In/Out
     const feedbackDetails = (() => {
         if (!feedback?.details) return {};
         if (typeof feedback.details === 'string') {
@@ -558,22 +462,22 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
     const timeOut = feedbackDetails?.timeOut || "-";
     
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm print:bg-white print:p-0 print:static print:block print:ins
-              <style>
-        {`
-        @media print {
-          @page { 
-            size: letter landscape; 
-            margin: 0.5in; 
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm print:bg-white print:p-0 print:static print:block">
+        <style>
+          {`
+          @media print {
+            @page { 
+              size: letter landscape; 
+              margin: 0.5in; 
+            }
+            body { 
+              print-color-adjust: exact; 
+              -webkit-print-color-adjust: exact; 
+              background-color: white !important;
+            }
           }
-          body { 
-            print-color-adjust: exact; 
-            -webkit-print-color-adjust: exact; 
-            background-color: white !important;
-          }
-        }
-        `}
-      </style>et-auto">
+          `}
+        </style>
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -581,10 +485,12 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
         >
            <div className="flex items-center justify-between p-6 border-b border-[#f5f1ed] bg-white sticky top-0 z-10 print:hidden">
               <div>
-                <h2 className="text-xl font-bold text-[#5a4a3a]">Service Slip Preview</h2>                <p className="text-sm text-gray-500">Ref: {fetchedOrder.reference_id || order.id || order.reference_id}</p>
+                <h2 className="text-xl font-bold text-[#5a4a3a]">Service Slip Preview</h2>
+                <p className="text-sm text-gray-500">Ref: {fetchedOrder.reference_id || order.id || order.reference_id}</p>
               </div>
               <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2 bg-[#8b7355] text-white hover:bg-[#7a6345] hover:text-white border-none">                  <Printer className="h-4 w-4" /> Print
+                <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2 bg-[#8b7355] text-white hover:bg-[#7a6345] hover:text-white border-none">
+                  <Printer className="h-4 w-4" /> Print
                 </Button>
                 <Button variant="ghost" size="icon" onClick={onClose}>
                   <X className="h-5 w-5" />
@@ -593,9 +499,7 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
            </div>
 
            <div className="p-6 sm:p-8 space-y-8 print:p-0 print:space-y-4 bg-white print:font-sans print:h-full print:flex print:flex-col print:justify-between">
-              
               <div>
-                {/* Print Header */}
                 <div className="mb-4 pt-2">
                     <PrintHeader 
                       title="BOOKING DETAILS" 
@@ -608,7 +512,6 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
                     />
                 </div>
 
-                {/* Header Info */}
                 <div className="flex justify-between items-end border-b-2 border-[#f5f1ed] pb-4 print:border-black print:mt-2 print:pb-2">
                     <div>
                         <h2 className="text-2xl font-mono font-bold text-[#5a4a3a] print:text-black print:text-xl">
@@ -623,12 +526,8 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
                     </div>
                 </div>
 
-                {/* Landscape Grid Layout for Content */}
                 <div className="print:grid print:grid-cols-[35%_65%] print:gap-8 print:mt-4">
-                  
-                  {/* Left Column */}
                   <div className="flex flex-col gap-6 print:gap-4">
-                      {/* Customer Information Box */}
                       <div>
                           <h3 className="text-sm font-bold text-[#7a6a5a] uppercase tracking-wider mb-3 print:mb-2 print:text-black">
                             Customer Information
@@ -670,7 +569,6 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
                           </div>
                       </div>
 
-                      {/* Service Time Tracking */}
                       <div>
                           <h3 className="text-sm font-bold text-[#7a6a5a] uppercase tracking-wider mb-3 print:mb-2 print:text-black">
                             Time Tracking
@@ -688,9 +586,7 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
                       </div>
                   </div>
 
-                  {/* Right Column */}
                   <div className="flex flex-col gap-6 print:gap-4 mt-6 print:mt-0">
-                      {/* Services Ordered */}
                       <div>
                         <h3 className="text-sm font-bold text-[#7a6a5a] uppercase tracking-wider mb-3 print:mb-2 print:text-black">
                           Services Ordered
@@ -724,7 +620,6 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
                         </div>
                       </div>
 
-                      {/* Financial Summary */}
                       <div className="border-t-2 border-[#e5ddd5] pt-4 flex flex-col items-end print:border-black print:pt-3 print:mt-2 h-full justify-end">
                         <div className="w-full sm:w-72 print:w-64 space-y-2 text-[#5a4a3a] print:text-black">
                             <div className="flex justify-between text-sm">
@@ -748,16 +643,13 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
                         </div>
                       </div>
                   </div>
-
                 </div>
               </div>
 
-              {/* Footer text */}
               <div className="text-center mt-8 pt-4 border-t border-[#f5f1ed] text-[#7a6a5a] print:border-black print:text-black print:mt-4 print:pt-2">
                   <p className="text-sm print:text-xs italic font-serif">Thank you for choosing Lema Filipino Spa.</p>
                   <p className="text-xs print:text-[10px] mt-1">This document serves as your booking reference.</p>
               </div>
-
            </div>
 
            <div className="p-6 border-t border-[#f5f1ed] bg-gray-50 mt-auto print:hidden">
@@ -767,8 +659,6 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
       </div>
     );
   };
-
-  // --- Main Render ---
 
   return (
     <div className="w-full max-w-6xl mx-auto p-4 space-y-6">
@@ -876,13 +766,7 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
         ) : activeTab === 'management' && isAdmin ? (
           <ManagementPage 
             feedbacks={feedbacks} 
-            onRefreshFeedbacks={() => {
-              fetchFeedbacks();
-              toast({
-                title: "Success",
-                description: "Feedbacks data reloaded successfully."
-              });
-            }} 
+            onRefreshFeedbacks={() => fetchFeedbacks()} 
             isLoadingFeedbacks={isLoadingFeedbacks} 
           />
         ) : activeTab === 'gift-cards' && isAdmin ? (
@@ -942,7 +826,6 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
                                           <span className="font-mono font-bold">{detailsObj.discount.code}</span>
                                           <span>
                                              -{detailsObj.discount.percentage}%
-                                             {detailsObj.baseTotalPrice && ` (-₱${(detailsObj.baseTotalPrice - item.totalPrice).toLocaleString()})`}
                                           </span>
                                       </Badge>
                                   </div>
@@ -985,10 +868,7 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
                           variant="outline" 
                           size="sm" 
                           className="gap-2 text-[#8b7355] border-[#8b7355]/30 hover:bg-[#8b7355]/10" 
-                          onClick={() => {
-                            console.log("Setting selected item from table row. Item details:", item);
-                            setSelectedItem(item);
-                          }}
+                          onClick={() => setSelectedItem(item)}
                         >
                           <Eye className="h-3 w-3" /> View
                         </Button>
@@ -998,7 +878,6 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
                             size="icon" 
                             className="text-red-400 hover:text-red-600 hover:bg-red-50 h-8 w-8" 
                             onClick={e => handleDelete(e, item)} 
-                            title="Delete Record"
                           >
                                 <Trash2 className="h-4 w-4" />
                              </Button>
@@ -1013,7 +892,7 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
                       colSpan={activeTab === 'orders' ? 7 : activeTab === 'feedbacks' ? 6 : 5} 
                       className="px-6 py-12 text-center text-gray-400"
                     >
-                      No submissions found in {activeTab === 'intakes' ? 'health forms' : activeTab === 'orders' ? 'bookings' : activeTab}.
+                      No submissions found.
                     </td>
                   </tr>
                 )}
