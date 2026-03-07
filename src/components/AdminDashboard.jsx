@@ -335,6 +335,8 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
   
   const OrderDetailsModal = ({ order, onClose }) => {
     const { feedback } = useBookingFeedback(order?.id, order?.reference_id);
+    
+    
     const [fetchedOrder, setFetchedOrder] = useState(order);
     
     useEffect(() => {
@@ -490,34 +492,49 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
         return [String(val)];
     };
 
-    // Extract payment methods - check all possible naming conventions
-    const rawPm = fetchedOrder?.payment_methods || 
-                  fetchedOrder?.paymentmethods || 
-                  fetchedOrder?.paymentMethods ||
-                  details?.payment_methods || 
-                  details?.paymentmethods || 
-                  details?.paymentMethods ||
-                  details?.customerDetails?.payment_methods || 
-                  details?.customerDetails?.paymentmethods ||
-                  customerDetails?.payment_methods ||
-                  customerDetails?.paymentmethods ||
-                  [];
-
-    const pmArray = ensureArray(rawPm);
-
-    const pmNote = fetchedOrder?.payment_method_note || 
-                   fetchedOrder?.paymentmethodnote || 
-                   fetchedOrder?.paymentMethodNote ||
-                   details?.payment_method_note || 
-                   details?.paymentmethodnote || 
-                   details?.paymentMethodNote ||
-                   details?.customerDetails?.payment_method_note || 
-                   customerDetails?.payment_method_note ||
-                   '';
-
-    console.log('[Payment Debug] Raw payment methods:', rawPm);
-    console.log('[Payment Debug] Processed pmArray:', pmArray);
-    console.log('[Payment Debug] Payment note:', pmNote);
+    // 2. Logging specific order structure for payment
+    console.group("=== PAYMENT METHODS EXTRACTION DEBUG ===");
+    console.log("Raw fetchedOrder.payment_methods (plural):", fetchedOrder?.payment_methods);
+    console.log("Raw fetchedOrder.payment_method (singular):", fetchedOrder?.payment_method);
+    console.log("Raw fetchedOrder.payment_method_note:", fetchedOrder?.payment_method_note);
+    console.log("Raw details.payment_methods:", details?.payment_methods);
+    console.log("Raw customerDetails.payment_methods:", customerDetails?.payment_methods);
+    
+    // 3. ✅ IMPROVED Fallback extraction logic with priority order
+    let rawPmArray = [];
+    // Priority 1: Direct order.payment_methods column from database
+    if (fetchedOrder?.payment_methods && ensureArray(fetchedOrder.payment_methods).length > 0) {
+      rawPmArray = fetchedOrder.payment_methods;
+      console.log("--> Using fetchedOrder.payment_methods:", rawPmArray);
+    }
+    // Priority 2: Order details nested payment_methods
+    else if (details?.payment_methods && ensureArray(details.payment_methods).length > 0) {
+      rawPmArray = details.payment_methods;
+      console.log("--> Falling back to details.payment_methods:", rawPmArray);
+    }
+    // Priority 3: Alternative naming (paymentMethods camelCase)
+    else if (details?.paymentMethods && ensureArray(details.paymentMethods).length > 0) {
+      rawPmArray = details.paymentMethods;
+      console.log("--> Falling back to details.paymentMethods:", rawPmArray);
+    }
+    // Priority 4: Customer details payment_methods
+    else if (customerDetails?.payment_methods && ensureArray(customerDetails.payment_methods).length > 0) {
+      rawPmArray = customerDetails.payment_methods;
+      console.log("--> Falling back to customerDetails.payment_methods:", rawPmArray);
+    }
+    // Priority 5: Singular payment_method (legacy support)
+    else if (fetchedOrder?.payment_method && ensureArray(fetchedOrder.payment_method).length > 0) {
+      rawPmArray = fetchedOrder.payment_method;
+      console.log("--> Falling back to fetchedOrder.payment_method (singular):", rawPmArray);
+    }
+    else {
+      console.log("--> No payment methods found across all sources.");
+    }
+    
+    // Safely force to an array of valid strings
+    const pmArray = ensureArray(rawPmArray);
+        
+    console.log("--> Final resolved pmArray BEFORE rendering:", pmArray);
 
     
     // Compute therapist name logically based on all sources
