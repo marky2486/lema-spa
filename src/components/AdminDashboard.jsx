@@ -388,14 +388,29 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
     const discountAmount = hasDiscount ? basePrice * details.discount.percentage / 100 : 0;
     const finalTotal = Number(fetchedOrder.total_price || order.totalPrice || 0) + Number(tipAmount);
     
+    // EXHAUSTIVE EXTRACTION FOR GUEST TYPE AND ROOM NUMBER
+    console.group("=== GUEST TYPE & ROOM NUMBER EXTRACTION DEBUG ===");
+    console.log("Raw fetchedOrder.guest_type:", fetchedOrder?.guest_type);
+    console.log("Raw fetchedOrder.guestType:", fetchedOrder?.guestType);
+    console.log("Raw details.guest_type:", details?.guest_type);
+    console.log("Raw details.guestType:", details?.guestType);
+    console.log("Raw customerDetails.guestType:", customerDetails?.guestType);
+    console.log("Raw fetchedOrder.room_no:", fetchedOrder?.room_no);
+    console.log("Raw fetchedOrder.roomNo:", fetchedOrder?.roomNo);
+    console.log("Raw details.room_no:", details?.room_no);
+    console.log("Raw details.roomNo:", details?.roomNo);
+    console.log("Raw details.roomNumber:", details?.roomNumber);
+    console.log("Raw customerDetails.roomNo:", customerDetails?.roomNo);
+    
     const rawGuestType = fetchedOrder?.guest_type 
                       || fetchedOrder?.guestType 
                       || details?.guest_type 
                       || details?.guestType 
                       || details?.customerDetails?.guestType 
                       || customerDetails?.guestType
+                      || fetchedOrder?.customerDetails?.guestType
                       || "";
-                      
+    
     const rawRoomNo = fetchedOrder?.room_no 
                    || fetchedOrder?.roomNo 
                    || fetchedOrder?.room_number 
@@ -404,12 +419,15 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
                    || details?.roomNumber 
                    || details?.room_number 
                    || details?.customerDetails?.roomNo 
+                   || details?.customerDetails?.roomNumber
                    || customerDetails?.roomNo
+                   || customerDetails?.roomNumber
+                   || fetchedOrder?.customerDetails?.roomNo
                    || "";
-                   
-    const guestType = rawGuestType && rawGuestType !== "N/A" ? rawGuestType : "\u00A0";
-    const roomNo = rawRoomNo && rawRoomNo !== "N/A" ? rawRoomNo : "\u00A0";
     
+    
+    console.log("--> Final resolved guestType:", guestType);
+    console.log("--> Final resolved roomNo:", roomNo);
     const ensureArray = (val) => {
         if (!val) return [];
         if (Array.isArray(val)) return val;
