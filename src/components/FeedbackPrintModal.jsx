@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Printer, X, AlertCircle } from 'lucide-react';
@@ -327,10 +326,6 @@ export default function FeedbackPrintModal({ feedback, order: initialOrder, allO
                       <div>
                           <h3 className="text-sm font-bold text-[#7a6a5a] uppercase tracking-wider mb-3 print:mb-1.5 print:text-black print:text-xs">Time Tracking</h3>
                           <div className="grid grid-cols-1 gap-4 p-4 rounded-lg border border-[#e5ddd5] print:border-black print:p-2.5 print:gap-2.5">
-                            <div className="flex items-center justify-between gap-3">
-                                <span className="font-bold text-[#5a4a3a] print:text-black whitespace-nowrap print:text-[11px]">Time In/Out Asked?</span>
-                                <span className="font-medium text-[#5a4a3a] print:text-black capitalize">{timeInOutQuestion}</span>
-                            </div>
                             <div className="flex items-center justify-between gap-3 pt-2 print:pt-0.5 border-t border-dashed border-[#e5ddd5] print:border-gray-300">
                                 <span className="font-bold text-[#5a4a3a] print:text-black whitespace-nowrap print:text-[11px]">Time In:</span>
                                 <span className="font-medium text-[#5a4a3a] print:text-black">{timeIn}</span>
