@@ -388,13 +388,30 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
     const discountAmount = hasDiscount ? basePrice * details.discount.percentage / 100 : 0;
     const finalTotal = Number(fetchedOrder.total_price || order.totalPrice || 0) + Number(tipAmount);
     
+    const feedbackDetails = (() => {
+        if (!feedback?.details) return {};
+        if (typeof feedback.details === 'string') {
+            try { return JSON.parse(feedback.details); } catch(e) { return {}; }
+        }
+        return feedback.details;
+    })();
+
     // EXHAUSTIVE EXTRACTION FOR GUEST TYPE AND ROOM NUMBER
     console.group("=== GUEST TYPE & ROOM NUMBER EXTRACTION DEBUG ===");
+    console.log("feedbackDetails:", feedbackDetails);
+    console.log("fetchedOrder details:", details);
+    console.log("customerDetails:", customerDetails);
+    
+    console.log("Raw feedbackDetails.guest_type:", feedbackDetails?.guest_type);
+    console.log("Raw feedbackDetails.guestType:", feedbackDetails?.guestType);
     console.log("Raw fetchedOrder.guest_type:", fetchedOrder?.guest_type);
     console.log("Raw fetchedOrder.guestType:", fetchedOrder?.guestType);
     console.log("Raw details.guest_type:", details?.guest_type);
     console.log("Raw details.guestType:", details?.guestType);
     console.log("Raw customerDetails.guestType:", customerDetails?.guestType);
+    
+    console.log("Raw feedbackDetails.room_no:", feedbackDetails?.room_no);
+    console.log("Raw feedbackDetails.roomNo:", feedbackDetails?.roomNo);
     console.log("Raw fetchedOrder.room_no:", fetchedOrder?.room_no);
     console.log("Raw fetchedOrder.roomNo:", fetchedOrder?.roomNo);
     console.log("Raw details.room_no:", details?.room_no);
@@ -402,32 +419,40 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
     console.log("Raw details.roomNumber:", details?.roomNumber);
     console.log("Raw customerDetails.roomNo:", customerDetails?.roomNo);
     
-    const rawGuestType = fetchedOrder?.guest_type 
+    const rawGuestType = feedbackDetails?.guest_type
+                      || feedbackDetails?.guestType
+                      || fetchedOrder?.guest_type 
                       || fetchedOrder?.guestType 
                       || details?.guest_type 
                       || details?.guestType 
-                      || details?.customerDetails?.guestType 
                       || customerDetails?.guestType
+                      || customerDetails?.guest_type
                       || fetchedOrder?.customerDetails?.guestType
                       || "";
     
-    const rawRoomNo = fetchedOrder?.room_no 
+    const rawRoomNo = feedbackDetails?.room_no
+                   || feedbackDetails?.roomNo
+                   || feedbackDetails?.room_number
+                   || fetchedOrder?.room_no 
                    || fetchedOrder?.roomNo 
                    || fetchedOrder?.room_number 
                    || details?.room_no 
                    || details?.roomNo 
                    || details?.roomNumber 
                    || details?.room_number 
-                   || details?.customerDetails?.roomNo 
-                   || details?.customerDetails?.roomNumber
                    || customerDetails?.roomNo
+                   || customerDetails?.room_no
                    || customerDetails?.roomNumber
                    || fetchedOrder?.customerDetails?.roomNo
                    || "";
     
+    const guestType = rawGuestType || "N/A";
+    const roomNo = rawRoomNo || "N/A";
     
     console.log("--> Final resolved guestType:", guestType);
     console.log("--> Final resolved roomNo:", roomNo);
+    console.groupEnd();
+
     const ensureArray = (val) => {
         if (!val) return [];
         if (Array.isArray(val)) return val;
@@ -456,7 +481,6 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
     }
     const pmArray = ensureArray(rawPmArray);
 
-    // RESTORED: Restore pmNote variable definition with proper fallback logic
     const pmNote = fetchedOrder?.payment_method_note 
                 || details?.payment_method_note 
                 || customerDetails?.payment_method_note 
@@ -467,14 +491,6 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
                               || details?.therapistName 
                               || order?.therapist?.name
                               || "Not assigned";
-    
-    const feedbackDetails = (() => {
-        if (!feedback?.details) return {};
-        if (typeof feedback.details === 'string') {
-            try { return JSON.parse(feedback.details); } catch(e) { return {}; }
-        }
-        return feedback.details;
-    })();
     
     const timeIn = feedbackDetails?.timeIn || "-";
     const timeOut = feedbackDetails?.timeOut || "-";
@@ -522,8 +538,8 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
                     <PrintHeader 
                       title="BOOKING DETAILS" 
                       logo={LEMA_LOGO} 
-                      guestType={guestType !== "\u00A0" ? guestType : undefined} 
-                      roomNo={roomNo !== "\u00A0" ? roomNo : undefined} 
+                      guestType={guestType !== "\u00A0" && guestType !== "N/A" ? guestType : undefined} 
+                      roomNo={roomNo !== "\u00A0" && roomNo !== "N/A" ? roomNo : undefined} 
                       therapistName={displayTherapistName} 
                       paymentMethods={pmArray} 
                       paymentNote={pmNote} 
