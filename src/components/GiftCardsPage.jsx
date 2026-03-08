@@ -71,8 +71,8 @@ const GiftCardsPage = () => {
     }
 
     const percentage = parseFloat(newCard.discount_percentage);
-    if (isNaN(percentage) || percentage <= 0 || percentage > 100) {
-      toast({ title: "Invalid Discount", description: "Percentage must be between 1 and 100", variant: "destructive" });
+    if (isNaN(percentage) || percentage < 0.01 || percentage > 100) {
+      toast({ title: "Invalid Discount", description: "Percentage must be between 0.01 and 100", variant: "destructive" });
       return;
     }
 
@@ -188,7 +188,7 @@ const GiftCardsPage = () => {
                                     step="0.01"
                     placeholder="20"
                     className="pl-9"
-                    min="1"
+                    min="0.01"
                     max="100"
                     value={newCard.discount_percentage}
                     onChange={(e) => setNewCard(prev => ({ ...prev, discount_percentage: e.target.value }))}
