@@ -114,11 +114,11 @@ export default function FeedbackPrintModal({ feedback, order: initialOrder, allO
     const cart = orderDetails.cart || [];
     const customer = orderDetails.customerDetails || {};
 
-    const basePrice = customer.baseTotalPrice || order?.total_price || order?.totalPrice || 0;
+    const basePrice = orderDetails.baseTotalPrice || customer.baseTotalPrice || order?.total_price || order?.totalPrice || 0;
     const tipAmount = feedback.tip_amount || details.gratuityAmount || 0;
     const discountData = orderDetails.discount || customer.discount || details.discount || {};
     const hasDiscount = !!(discountData.percentage);
-    const discountAmount = hasDiscount ? basePrice - (order?.total_price || order?.totalPrice || 0) : 0;
+    const discountAmount = hasDiscount ? basePrice * discountData.percentage / 100 : 0;
     const finalTotal = Number(order?.total_price || order?.totalPrice || basePrice) + Number(tipAmount);
 
     const guestName = details?.guestName || feedback.customer_name || customer.fullName || order?.customer_name || "Anonymous Guest";
