@@ -844,15 +844,14 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
                                       <Badge variant="outline" className="text-[10px] text-green-600 bg-green-50 border-green-200 font-normal px-1.5 py-0.5 h-auto gap-1">
                                           <Tag className="h-3 w-3" />
                                           <span>
-                                             -{{detailsObj.discount.percentage === 10.71 ? 'VAT‑Exempt Sale (incl. SC discount)' : `${detailsObj.discount.percentage}%`}
-                                          </span>
-                                      </Badge>
-                                  </div>
-                               )}
+                                             {detailsObj.discount.percentage === 10.71 ? 'VAT‑Exempt Sale (incl. SC discount)' : `${detailsObj.discount.percentage}%`}
+                                                              </span>
+                              </Badge>
                             </div>
-                         </td>
-                      )}
-                      
+                          )}
+                        </div>
+                      </td>
+                    )}                      
                       {activeTab === 'feedbacks' && (
                         <td className="px-6 py-4">
                             <div className="flex flex-col">
