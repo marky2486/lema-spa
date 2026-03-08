@@ -843,7 +843,6 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
                                  <div className="flex flex-wrap items-center gap-1 mt-1">
                                       <Badge variant="outline" className="text-[10px] text-green-600 bg-green-50 border-green-200 font-normal px-1.5 py-0.5 h-auto gap-1">
                                           <Tag className="h-3 w-3" />
-                                          <span className="font-mono font-bold">{detailsObj.discount.code}</span>
                                           <span>
                                              -{detailsObj.discount.percentage}%
                                           </span>
