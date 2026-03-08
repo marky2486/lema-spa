@@ -624,7 +624,7 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
                                   {cart.map((item, idx) => (
                                     <tr key={idx} className="border-b border-[#f5f1ed] print:border-gray-300">
                                         <td className="py-2.5 px-2">
-                                          <p className="font-medium leading-tight">{item.name}</p>
+  {details.discount.percentage === 10.71 ? 'Senior Citizen Discount – VAT Exempt' : `Discount (${details.discount.percentage}%)`}:                                        <p className="font-medium leading-tight">{item.name}</p>
                                           <p className="text-xs text-[#7a6a5a] print:text-gray-600 mt-0.5">{item.duration}</p>
                                         </td>
                                         <td className="py-2.5 px-2 text-center align-top">{item.quantity}</td>
@@ -647,7 +647,7 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
                             </div>
                             {hasDiscount && (
                               <div className="flex justify-between text-sm text-green-600 print:text-gray-700">
-                                  <span className="font-medium">Discount ({details.discount.percentage}%):</span>
+                                  <span className="font-medium">{details.discount.percentage === 10.71 ? 'Senior Citizen Discount – VAT Exempt' : `Discount (${details.discount.percentage}%)`}:</span>
                                   <span className="font-medium">-₱{discountAmount.toLocaleString()}</span>
                               </div>
                             )}
