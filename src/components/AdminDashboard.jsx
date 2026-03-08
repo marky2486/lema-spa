@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Eye, Clock, CheckCircle2, AlertCircle, Printer, Star, Coffee, Trash2, Shield, Users, Gift, Tag, Package, UserCog, Loader2 } from 'lucide-react';
+import { X, Eye, Clock, CheckCircle2, AlertCircle, Printer, Star, Coffee, Trash2, Shield, Users, Gift, Tag, Package, UserCog, Loader2, MessageSquare } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +14,7 @@ import TherapistManager from '@/components/TherapistManager';
 import { useBookingFeedback } from '@/hooks/useBookingFeedback';
 import PrintHeader from './PrintHeader';
 import FeedbackPrintModal from './FeedbackPrintModal';
+import FeedbackReviewModal from '@/components/FeedbackReviewModal.jsx';
 import { isUUID } from '@/lib/isUUID';
 
 // Use the exact same URL as HealthForm to ensure visual consistency
@@ -58,6 +59,7 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('orders');
   const [selectedItem, setSelectedItem] = useState(null);
+  const [selectedFeedbackForReview, setSelectedFeedbackForReview] = useState(null);
   const [feedbacks, setFeedbacks] = useState([]);
   const [isLoadingFeedbacks, setIsLoadingFeedbacks] = useState(false);
   const isAdmin = role === 'admin';
@@ -401,23 +403,6 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
     console.log("feedbackDetails:", feedbackDetails);
     console.log("fetchedOrder details:", details);
     console.log("customerDetails:", customerDetails);
-    
-    console.log("Raw feedbackDetails.guest_type:", feedbackDetails?.guest_type);
-    console.log("Raw feedbackDetails.guestType:", feedbackDetails?.guestType);
-    console.log("Raw fetchedOrder.guest_type:", fetchedOrder?.guest_type);
-    console.log("Raw fetchedOrder.guestType:", fetchedOrder?.guestType);
-    console.log("Raw details.guest_type:", details?.guest_type);
-    console.log("Raw details.guestType:", details?.guestType);
-    console.log("Raw customerDetails.guestType:", customerDetails?.guestType);
-    
-    console.log("Raw feedbackDetails.room_no:", feedbackDetails?.room_no);
-    console.log("Raw feedbackDetails.roomNo:", feedbackDetails?.roomNo);
-    console.log("Raw fetchedOrder.room_no:", fetchedOrder?.room_no);
-    console.log("Raw fetchedOrder.roomNo:", fetchedOrder?.roomNo);
-    console.log("Raw details.room_no:", details?.room_no);
-    console.log("Raw details.roomNo:", details?.roomNo);
-    console.log("Raw details.roomNumber:", details?.roomNumber);
-    console.log("Raw customerDetails.roomNo:", customerDetails?.roomNo);
     
     const rawGuestType = feedbackDetails?.guest_type
                       || feedbackDetails?.guestType
@@ -821,6 +806,7 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
                   <th className="px-6 py-4 font-medium">Status</th>
                   {activeTab === 'orders' && <th className="px-6 py-4 font-medium">Feedback</th>}
                   <th className="px-6 py-4 font-medium text-right">{activeTab === 'orders' ? 'Print' : 'Action'}</th>
+                  {activeTab === 'feedbacks' && <th className="px-6 py-4 font-medium text-right">FB Review</th>}
                 </tr>
               </thead>
               <tbody>
@@ -917,13 +903,25 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
                              </Button>
                         )}
                       </td>
+                      {activeTab === 'feedbacks' && (
+                         <td className="px-6 py-4 text-right">
+                           <Button 
+                             variant="secondary" 
+                             size="sm" 
+                             className="gap-2 bg-[#fdfbf7] text-[#8b7355] border border-[#e5ddd5] hover:bg-[#8b7355] hover:text-white transition-colors" 
+                             onClick={() => setSelectedFeedbackForReview(item)}
+                           >
+                             <MessageSquare className="h-3 w-3" /> FB Review
+                           </Button>
+                         </td>
+                      )}
                     </tr>
                     );
                   })
                 ) : (
                   <tr>
                     <td 
-                      colSpan={activeTab === 'orders' ? 7 : activeTab === 'feedbacks' ? 6 : 5} 
+                      colSpan={activeTab === 'orders' ? 7 : activeTab === 'feedbacks' ? 7 : 5} 
                       className="px-6 py-12 text-center text-gray-400"
                     >
                       No submissions found.
@@ -960,6 +958,14 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
             feedback={selectedItem} 
             onClose={() => setSelectedItem(null)} 
             allOrders={submissions?.orders || []} 
+          />
+        )}
+
+        {selectedFeedbackForReview && activeTab === 'feedbacks' && (
+          <FeedbackReviewModal
+             key="feedback-review-modal"
+             feedback={selectedFeedbackForReview}
+             onClose={() => setSelectedFeedbackForReview(null)}
           />
         )}
       </AnimatePresence>
