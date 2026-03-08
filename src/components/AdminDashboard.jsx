@@ -521,7 +521,7 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
               <div>
                 <div className="mb-4 pt-2">
                     <PrintHeader 
-                      title="BOOKING DETAILS" 
+                      title="SERVICE SLIP" 
                       logo={LEMA_LOGO} 
                       guestType={guestType !== "\u00A0" && guestType !== "N/A" ? guestType : undefined} 
                       roomNo={roomNo !== "\u00A0" && roomNo !== "N/A" ? roomNo : undefined} 
