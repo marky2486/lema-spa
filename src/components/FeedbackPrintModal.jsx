@@ -116,7 +116,8 @@ export default function FeedbackPrintModal({ feedback, order: initialOrder, allO
 
     const basePrice = customer.baseTotalPrice || order?.total_price || order?.totalPrice || 0;
     const tipAmount = feedback.tip_amount || details.gratuityAmount || 0;
-    const hasDiscount = !!customer.discount;
+    const discountData = orderDetails.discount || customer.discount || details.discount || {};
+    const hasDiscount = !!(discountData.percentage);
     const discountAmount = hasDiscount ? basePrice - (order?.total_price || order?.totalPrice || 0) : 0;
     const finalTotal = Number(order?.total_price || order?.totalPrice || basePrice) + Number(tipAmount);
 
@@ -383,7 +384,7 @@ export default function FeedbackPrintModal({ feedback, order: initialOrder, allO
                             </div>
                             {hasDiscount && (
                               <div className="flex justify-between text-sm text-green-600 print:text-gray-700 print:text-[11px]">
-                                  <span className="font-medium">{(details.discount?.percentage || customer.discount?.percentage) === 10.71 ? 'VAT‑Exempt Sale (incl. SC discount)' : `Discount (${details.discount?.percentage || customer.discount?.percentage}%)`}:</span>
+                                  <span className="font-medium">{discountData.percentage === 10.71 ? 'VAT‑Exempt Sale (incl. SC discount)' : `Discount (${discountData.percentage}%)`}:</span>
                                   <span className="font-medium">-₱{discountAmount.toLocaleString()}</span>
                               </div>
                             )}
