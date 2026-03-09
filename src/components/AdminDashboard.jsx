@@ -453,7 +453,9 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
             <div className="max-w-4xl mx-auto space-y-8">
               <PrintHeader
                 logo={LEMA_LOGO}
-                therapist={displayTherapistName}
+                therapistName={displayTherapistName}
+                              guestType={guestType !== "N/A" ? guestType : undefined}
+                              roomNo={roomNo !== "N/A" ? roomNo : undefined}
                 paymentMethods={pmArray}
                 paymentNote={pmNote}
               />
@@ -688,7 +690,7 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
       {activeTab === 'services' && isAdmin ? (
         <ServicesManager />
       ) : activeTab === 'management' && isAdmin ? (
-        <ManagementPage />
+        <ManagementPage feedbacks={feedbacks} onRefreshFeedbacks={fetchFeedbacks} isLoadingFeedbacks={isLoadingFeedbacks} />
       ) : activeTab === 'feedbacks' && isAdmin ? (
         <FeedbackReviewModal feedbacks={feedbacks} onRefresh={fetchFeedbacks} isLoadingFeedbacks={isLoadingFeedbacks} />
       ) : activeTab === 'gift-cards' && isAdmin ? (
