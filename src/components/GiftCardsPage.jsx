@@ -185,7 +185,7 @@ const GiftCardsPage = () => {
                   <Input
                     id="discount"
                     type="number"
-                                    step="0.01"
+                                    step="any"
                     placeholder="20"
                     className="pl-9"
                     min="0.01"
