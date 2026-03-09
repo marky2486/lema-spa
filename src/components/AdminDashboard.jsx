@@ -23,34 +23,38 @@ const LEMA_LOGO = "https://horizons-cdn.hostinger.com/48b83274-55e8-47c8-8de2-93
 
 const BookingStatusCell = ({ item }) => {
   const { feedback, loading } = useBookingFeedback(item?.id, item?.reference_id);
-  
+
   if (loading) {
     return <span className="text-gray-400 text-xs flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /></span>;
   }
-  
+
   if (feedback) {
     return <Badge className="bg-green-100 text-green-800 border-0 hover:bg-green-100 font-medium">Completed</Badge>;
   }
-  
+
   return <Badge className="bg-yellow-100 text-yellow-800 border-0 hover:bg-yellow-100 font-medium">Pending</Badge>;
 };
 
 const FeedbackCell = ({ item }) => {
   const { feedback, loading } = useBookingFeedback(item?.id, item?.reference_id);
-  
+
   if (loading) {
     return <span className="text-gray-400 text-xs flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /></span>;
   }
-  
+
   if (feedback) {
-    return <Badge className="bg-green-100 text-green-800 border-green-200 hover:bg-green-100 font-medium border-0">
+    return (
+      <Badge className="bg-green-100 text-green-800 border-green-200 hover:bg-green-100 font-medium border-0">
         Submitted{feedback.tip_amount > 0 ? ` - ₱${feedback.tip_amount} tip` : ''}
-      </Badge>;
+      </Badge>
+    );
   }
-  
-  return <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 hover:bg-amber-50 font-medium">
+
+  return (
+    <Badge className="bg-gray-100 text-gray-800 border-0 hover:bg-gray-100 font-medium">
       Pending
-    </Badge>;
+    </Badge>
+  );
 };
 
 const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => {
@@ -62,13 +66,13 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
   const [selectedFeedbackForReview, setSelectedFeedbackForReview] = useState(null);
   const [feedbacks, setFeedbacks] = useState([]);
   const [isLoadingFeedbacks, setIsLoadingFeedbacks] = useState(false);
+
   const isAdmin = role === 'admin';
-  
   const availableTabs = ['intakes', 'orders'];
   if (isAdmin) {
     availableTabs.push('feedbacks');
   }
-  
+
   const fetchFeedbacks = async () => {
     setIsLoadingFeedbacks(true);
     try {
@@ -76,7 +80,7 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
         .from('feedbacks')
         .select('*')
         .order('created_at', { ascending: false });
-      
+
       if (error) throw error;
       setFeedbacks(data || []);
     } catch (error) {
@@ -90,27 +94,26 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
       setIsLoadingFeedbacks(false);
     }
   };
-  
+
   useEffect(() => {
     if (isAdmin) {
       fetchFeedbacks();
-      
+
       const channel = supabase
         .channel('feedbacks_admin_changes')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'feedbacks' }, payload => {
           fetchFeedbacks();
         })
         .subscribe();
-      
+
       return () => {
         supabase.removeChannel(channel);
       };
     }
   }, [isAdmin]);
-  
+
   const handleDelete = async (e, item) => {
     e.stopPropagation();
-    
     if (!isAdmin) {
       toast({
         title: "Access Denied",
@@ -119,9 +122,8 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
       });
       return;
     }
-    
+
     const type = item.type || activeTab;
-    
     if (window.confirm(`Are you sure you want to delete this ${type}?`)) {
       if (type === 'feedbacks') {
         try {
@@ -136,7 +138,6 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
             title: "Deleted",
             description: "Feedback deleted successfully."
           });
-          
           fetchFeedbacks();
         } catch (err) {
           console.error("Delete error:", err);
@@ -151,7 +152,7 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
       }
     }
   };
-  
+
   const formatDate = isoString => {
     if (!isoString) return 'N/A';
     try {
@@ -165,7 +166,7 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
       return 'Invalid Date';
     }
   };
-  
+
   const renderStatusBadge = status => {
     const styles = {
       'New': 'bg-blue-100 text-blue-800 hover:bg-blue-100',
@@ -173,172 +174,148 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
       'Completed': 'bg-green-100 text-green-800 hover:bg-green-100',
       'Reviewed': 'bg-purple-100 text-purple-800 hover:bg-purple-100'
     };
-    return <Badge className={`${styles[status] || 'bg-gray-100'} border-0`}>{status}</Badge>;
+    return (
+      <Badge className={`${styles[status] || 'bg-gray-100 text-gray-800'} border-0 font-medium`}>
+        {status}
+      </Badge>
+    );
   };
-  
+
   const handlePrint = () => {
     window.print();
   };
-  
+
   const getDisplayItems = () => {
     if (activeTab === 'feedbacks') {
       return feedbacks.map(f => ({ ...f, type: 'feedbacks' }));
     }
     return submissions[activeTab] || [];
   };
-  
+
   const displayItems = getDisplayItems();
-  
+
   const StarRating = ({ rating }) => (
     <div className="flex gap-0.5">
       {[1, 2, 3, 4, 5].map(star => (
-        <Star 
-          key={star} 
-          className={`h-4 w-4 ${star <= rating ? 'text-[#d4a574] fill-[#d4a574]' : 'text-gray-300'}`} 
+        <Star
+          key={star}
+          className={`h-3 w-3 ${star <= rating ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300'}`}
         />
       ))}
     </div>
   );
-  
+
   const HealthFormDetailsModal = ({ intake, onClose }) => {
     if (!intake) return null;
-    
     const { details } = intake;
-    
+
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm print:bg-white print:p-0 print:static print:block">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto flex flex-col print:shadow-none print:w-full print:max-h-none print:rounded-none"
+          className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
         >
-          <div className="flex items-center justify-between p-6 border-b sticky top-0 bg-white z-10 print:static print:border-none print:pb-0">
+          <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between z-10">
             <div>
-              <h2 className="text-xl font-bold text-[#5a4a3a]">Health Form Details</h2>
-              <p className="text-sm text-gray-500">Ref: {intake.reference_id || intake.id}</p>
+              <h2 className="text-xl font-bold text-gray-900">Health Form Details</h2>
+              <p className="text-sm text-gray-500 font-mono">Ref: {intake.reference_id || intake.id}</p>
             </div>
-            <div className="flex gap-2 print:hidden">
-              <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2">
-                <Printer className="h-4 w-4" /> Print
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={handlePrint} className="flex items-center gap-2">
+                <Printer className="h-4 w-4" />
+                Print
               </Button>
               <Button variant="ghost" size="icon" onClick={onClose}>
                 <X className="h-5 w-5" />
               </Button>
             </div>
           </div>
-          
-          <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8 print:grid print:grid-cols-2 print:gap-8 print:p-4 print:space-y-0">
-            <div className="space-y-6 print:space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-3 bg-gray-50 rounded-md print:border print:bg-transparent print:p-2">
-                  <span className="text-xs font-bold text-gray-500 uppercase block">Client Name</span>
-                  <span className="font-medium text-[#5a4a3a]">{details.clientName}</span>
-                </div>
-                <div className="p-3 bg-gray-50 rounded-md print:border print:bg-transparent print:p-2">
-                  <span className="text-xs font-bold text-gray-500 uppercase block">Guest Details</span>
-                  <span className="font-medium text-[#5a4a3a]">
-                      {details.guestType ? (
-                        <>
-                            {details.guestType}
-                            {details.roomNumber && <span className="text-gray-500 ml-1">(Rm {details.roomNumber})</span>}
-                          </>
-                      ) : details.roomNumber || 'N/A'}
-                  </span>
-                </div>
-              </div>
 
+          <div className="p-6 space-y-8">
+            <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Client Name</p>
+                <p className="text-lg font-medium text-gray-900">{details.clientName}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Guest Details</p>
+                <p className="text-lg font-medium text-gray-900">
+                  {details.guestType ? (
+                    <>
+                      {details.guestType}
+                      {details.roomNumber && <span className="ml-2 text-gray-500 text-sm font-normal">(Rm {details.roomNumber})</span>}
+                    </>
+                  ) : details.roomNumber || 'N/A'}
+                </p>
+              </div>
               {details.therapist && (
-                <div className="p-3 bg-[#fdfbf7] rounded-md border border-[#e5ddd5] print:border print:bg-transparent print:p-2">
-                     <span className="text-xs font-bold text-[#8b7355] uppercase block flex items-center gap-1">
-                        <UserCog className="h-3 w-3" /> Assigned Therapist
-                     </span>
-                     <span className="font-medium text-[#5a4a3a]">{details.therapist}</span>
-                  </div>
-              )}
-
-              <div className="space-y-3">
-                <h3 className="font-semibold text-[#8b7355] flex items-center gap-2 border-b pb-2">
-                  <AlertCircle className="h-4 w-4" /> Medical Conditions
-                </h3>
-                <div className="grid grid-cols-1 gap-2 print:grid-cols-2 print:gap-1">
-                  {Object.entries(details).map(([key, value]) => {
-                    if (value === true && !['agreement', 'bodyMapImage'].includes(key)) {
-                      return (
-                        <div key={key} className="flex items-start gap-2 text-sm text-gray-700">
-                          <CheckCircle2 className="h-4 w-4 text-red-500 shrink-0 mt-0.5" />
-                          <span className="capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })}
+                <div className="col-span-2 space-y-1">
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Assigned Therapist</p>
+                  <p className="text-lg font-medium text-gray-900">{details.therapist}</p>
                 </div>
-                  {details.recentSurgeryDetails && (
-                    <div className="text-sm bg-red-50 p-2 rounded border border-red-100 mt-2 print:bg-transparent print:border-black">
-                      <span className="font-semibold text-red-800">Surgery:</span> {details.recentSurgeryDetails}
-                    </div>
-                  )}
-                  {details.injuriesDetails && (
-                    <div className="text-sm bg-red-50 p-2 rounded border border-red-100 mt-2 print:bg-transparent print:border-black">
-                      <span className="font-semibold text-red-800">Injuries:</span> {details.injuriesDetails}
-                    </div>
-                  )}
-                  {details.painDetails && (
-                    <div className="text-sm bg-red-50 p-2 rounded border border-red-100 mt-2 print:bg-transparent print:border-black">
-                       <span className="font-semibold text-red-800">Pain Areas:</span> {details.painDetails}
-                     </div>
-                  )}
-                  {details.otherAllergyDetails && (
-                    <div className="text-sm bg-red-50 p-2 rounded border border-red-100 mt-2 print:bg-transparent print:border-black">
-                        <span className="font-semibold text-red-800">Other Allergies:</span> {details.otherAllergyDetails}
-                    </div>
-                  )}
-              </div>
+              )}
             </div>
 
-            <div className="flex flex-col items-center space-y-4 print:break-inside-avoid print:items-start">
-              <h3 className="font-semibold text-[#8b7355] w-full border-b pb-2 text-center md:text-left">
-                Body Map Areas
-              </h3>
-              
-              <div className="relative w-[300px] h-[300px] sm:w-[320px] sm:h-[320px] border-2 border-[#8b7355] rounded-lg bg-white overflow-hidden shadow-sm print:border-black print:w-[350px] print:h-[350px]">
-                <img 
-                  src={BODY_DIAGRAM_URL} 
-                  alt="Body Figure Base" 
-                  className="absolute inset-0 w-full h-full object-contain opacity-50" 
-                />
+            <section>
+              <h3 className="text-sm font-bold text-gray-900 mb-4 pb-2 border-b uppercase tracking-widest">Medical Conditions</h3>
+              <div className="grid grid-cols-2 gap-3">
+                {Object.entries(details).map(([key, value]) => {
+                  if (value === true && !['agreement', 'bodyMapImage'].includes(key)) {
+                    return (
+                      <div key={key} className="flex items-center gap-2 text-red-600 bg-red-50 px-3 py-2 rounded-lg border border-red-100">
+                        <AlertCircle className="h-4 w-4 shrink-0" />
+                        <span className="text-sm font-medium">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
+                      </div>
+                    );
+                  }
+                  return null;
+                })}
+              </div>
+              <div className="mt-4 space-y-3">
+                {details.recentSurgeryDetails && (
+                  <p className="text-sm"><span className="font-semibold text-gray-700">Surgery:</span> {details.recentSurgeryDetails}</p>
+                )}
+                {details.injuriesDetails && (
+                  <p className="text-sm"><span className="font-semibold text-gray-700">Injuries:</span> {details.injuriesDetails}</p>
+                )}
+                {details.painDetails && (
+                  <p className="text-sm"><span className="font-semibold text-gray-700">Pain Areas:</span> {details.painDetails}</p>
+                )}
+                {details.otherAllergyDetails && (
+                  <p className="text-sm"><span className="font-semibold text-gray-700">Other Allergies:</span> {details.otherAllergyDetails}</p>
+                )}
+              </div>
+            </section>
+
+            <section>
+              <h3 className="text-sm font-bold text-gray-900 mb-4 pb-2 border-b uppercase tracking-widest">Body Map Areas</h3>
+              <div className="relative aspect-[3/4] max-w-sm mx-auto bg-gray-50 rounded-xl border border-dashed border-gray-300 overflow-hidden">
+                <img src={BODY_DIAGRAM_URL} alt="Body Figure Base" className="absolute inset-0 w-full h-full object-contain opacity-40" />
                 {details.bodyMapImage ? (
-                  <img 
-                    src={details.bodyMapImage} 
-                    alt="Client Marks Overlay" 
-                    className="absolute inset-0 w-full h-full object-contain z-10" 
-                  />
+                  <img src={details.bodyMapImage} alt="Client Marks Overlay" className="absolute inset-0 w-full h-full object-contain z-10" />
                 ) : (
-                  <div className="absolute inset-0 flex items-center justify-center text-xs text-gray-400 z-20 pointer-events-none">
-                    No marks recorded
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <p className="text-gray-400 text-sm">No marks recorded</p>
                   </div>
                 )}
               </div>
-              
-              <div className="text-xs text-center md:text-left text-gray-500 max-w-xs">
-                <span className="inline-block w-3 h-3 bg-red-500 rounded-full mr-1 align-middle"></span>
-                Red marks indicate areas to avoid.
-              </div>
-            </div>
+              <p className="text-center text-xs text-gray-500 mt-4 italic">Red marks indicate areas to avoid.</p>
+            </section>
           </div>
-          
-          <div className="p-6 border-t bg-gray-50 mt-auto print:hidden">
-             <Button onClick={onClose} className="w-full md:w-auto">Close Details</Button>
+
+          <div className="border-t p-6 bg-gray-50 flex justify-end">
+            <Button onClick={onClose} variant="secondary">Close Details</Button>
           </div>
         </motion.div>
       </div>
     );
   };
-  
+
   const OrderDetailsModal = ({ order, onClose }) => {
     const { feedback } = useBookingFeedback(order?.id, order?.reference_id);
     const [fetchedOrder, setFetchedOrder] = useState(order);
-    
+
     useEffect(() => {
       const fetchFullOrderAndTherapist = async () => {
         const orderRef = order?.reference_id || order?.id || order?.booking_id || order?.order_id;
@@ -347,14 +324,14 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
         try {
           let query = supabase.from('orders').select('*');
           if (isUUID(orderRef)) {
-              query = query.eq('id', orderRef);
+            query = query.eq('id', orderRef);
           } else {
-              query = query.eq('reference_id', orderRef);
+            query = query.eq('reference_id', orderRef);
           }
 
           const { data: orderData, error: orderError } = await query.single();
           if (orderError) throw orderError;
-          
+
           let mergedOrder = { ...orderData };
           const targetTherapistId = orderData.therapist_id || orderData.details?.therapist_id || orderData.details?.therapist?.id;
 
@@ -364,7 +341,6 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
               .select('*')
               .eq('id', targetTherapistId)
               .single();
-
             if (therapistData) {
               mergedOrder.therapist = therapistData;
               mergedOrder.therapists = therapistData;
@@ -376,11 +352,12 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
           setFetchedOrder(order);
         }
       };
+
       fetchFullOrderAndTherapist();
     }, [order]);
 
     if (!order) return null;
-    
+
     const details = fetchedOrder?.details || order.details || {};
     const customerDetails = details?.customerDetails || fetchedOrder?.customerDetails || {};
     const cart = details.cart || [];
@@ -389,67 +366,37 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
     const hasDiscount = !!details.discount;
     const discountAmount = hasDiscount ? basePrice * details.discount.percentage / 100 : 0;
     const finalTotal = Number(fetchedOrder.total_price || order.totalPrice || 0) + Number(tipAmount);
-    
+
     const feedbackDetails = (() => {
-        if (!feedback?.details) return {};
-        if (typeof feedback.details === 'string') {
-            try { return JSON.parse(feedback.details); } catch(e) { return {}; }
+      if (!feedback?.details) return {};
+      if (typeof feedback.details === 'string') {
+        try {
+          return JSON.parse(feedback.details);
+        } catch(e) {
+          return {};
         }
-        return feedback.details;
+      }
+      return feedback.details;
     })();
 
-    // EXHAUSTIVE EXTRACTION FOR GUEST TYPE AND ROOM NUMBER
-    console.group("=== GUEST TYPE & ROOM NUMBER EXTRACTION DEBUG ===");
-    console.log("feedbackDetails:", feedbackDetails);
-    console.log("fetchedOrder details:", details);
-    console.log("customerDetails:", customerDetails);
-    
-    const rawGuestType = feedbackDetails?.guest_type
-                      || feedbackDetails?.guestType
-                      || fetchedOrder?.guest_type 
-                      || fetchedOrder?.guestType 
-                      || details?.guest_type 
-                      || details?.guestType 
-                      || customerDetails?.guestType
-                      || customerDetails?.guest_type
-                      || fetchedOrder?.customerDetails?.guestType
-                      || "";
-    
-    const rawRoomNo = feedbackDetails?.room_no
-                   || feedbackDetails?.roomNo
-                   || feedbackDetails?.room_number
-                   || fetchedOrder?.room_no 
-                   || fetchedOrder?.roomNo 
-                   || fetchedOrder?.room_number 
-                   || details?.room_no 
-                   || details?.roomNo 
-                   || details?.roomNumber 
-                   || details?.room_number 
-                   || customerDetails?.roomNo
-                   || customerDetails?.room_no
-                   || customerDetails?.roomNumber
-                   || fetchedOrder?.customerDetails?.roomNo
-                   || "";
-    
+    // Robust extraction for guest type and room number
+    const rawGuestType = feedbackDetails?.guest_type || feedbackDetails?.guestType || fetchedOrder?.guest_type || fetchedOrder?.guestType || details?.guest_type || details?.guestType || customerDetails?.guestType || customerDetails?.guest_type || fetchedOrder?.customerDetails?.guestType || "";
+    const rawRoomNo = feedbackDetails?.room_no || feedbackDetails?.roomNo || feedbackDetails?.room_number || fetchedOrder?.room_no || fetchedOrder?.roomNo || fetchedOrder?.room_number || details?.room_no || details?.roomNo || details?.roomNumber || details?.room_number || customerDetails?.roomNo || customerDetails?.room_no || customerDetails?.roomNumber || fetchedOrder?.customerDetails?.roomNo || "";
     const guestType = rawGuestType || "N/A";
     const roomNo = rawRoomNo || "N/A";
-    
-    console.log("--> Final resolved guestType:", guestType);
-    console.log("--> Final resolved roomNo:", roomNo);
-    console.groupEnd();
 
     const ensureArray = (val) => {
-        if (!val) return [];
-        if (Array.isArray(val)) return val;
-        if (typeof val === 'string') {
-            try {
-                const parsed = JSON.parse(val);
-                return Array.isArray(parsed) ? parsed : [val];
-            } catch (e) {
-                return [val];
-            }
+      if (!val) return [];
+      if (Array.isArray(val)) return val;
+      if (typeof val === 'string') {
+        try {
+          const parsed = JSON.parse(val);
+          return Array.isArray(parsed) ? parsed : [val];
+        } catch (e) {
+          return [val];
         }
-        return [String(val)];
+      }
+      return [String(val)];
     };
 
     let rawPmArray = [];
@@ -465,351 +412,307 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
       rawPmArray = fetchedOrder.payment_method;
     }
     const pmArray = ensureArray(rawPmArray);
+    const pmNote = fetchedOrder?.payment_method_note || details?.payment_method_note || customerDetails?.payment_method_note || "";
+    const displayTherapistName = fetchedOrder?.therapist?.name || fetchedOrder?.therapists?.name || details?.therapistName || order?.therapist?.name || "Not assigned";
 
-    const pmNote = fetchedOrder?.payment_method_note 
-                || details?.payment_method_note 
-                || customerDetails?.payment_method_note 
-                || "";
-
-    const displayTherapistName = fetchedOrder?.therapist?.name 
-                              || fetchedOrder?.therapists?.name 
-                              || details?.therapistName 
-                              || order?.therapist?.name
-                              || "Not assigned";
-    
     const timeIn = feedbackDetails?.timeIn || "-";
     const timeOut = feedbackDetails?.timeOut || "-";
-    
+
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm print:bg-white print:p-0 print:static print:block">
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <style>
           {`
-          @media print {
-            @page { 
-              size: letter landscape; 
-              margin: 0.5in; 
+            @media print {
+              @page { size: letter landscape; margin: 0.5in; }
+              body { print-color-adjust: exact; -webkit-print-color-adjust: exact; background-color: white !important; }
             }
-            body { 
-              print-color-adjust: exact; 
-              -webkit-print-color-adjust: exact; 
-              background-color: white !important;
-            }
-          }
           `}
         </style>
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto flex flex-col border border-[#e5ddd5] print:shadow-none print:w-full print:max-h-none print:rounded-none print:border-none print:overflow-visible"
+          className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
         >
-           <div className="flex items-center justify-between p-6 border-b border-[#f5f1ed] bg-white sticky top-0 z-10 print:hidden">
-              <div>
-                <h2 className="text-xl font-bold text-[#5a4a3a]">Service Slip Preview</h2>
-                <p className="text-sm text-gray-500">Ref: {fetchedOrder.reference_id || order.id || order.reference_id}</p>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={handlePrint} className="gap-2 bg-[#8b7355] text-white hover:bg-[#7a6345] hover:text-white border-none">
-                  <Printer className="h-4 w-4" /> Print
-                </Button>
-                <Button variant="ghost" size="icon" onClick={onClose}>
-                  <X className="h-5 w-5" />
-                </Button>
-              </div>
-           </div>
+          <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between z-10 shrink-0">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">Service Slip Preview</h2>
+              <p className="text-sm text-gray-500 font-mono">Ref: {fetchedOrder.reference_id || order.id || order.reference_id}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={handlePrint} className="flex items-center gap-2">
+                <Printer className="h-4 w-4" />
+                Print
+              </Button>
+              <Button variant="ghost" size="icon" onClick={onClose}>
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+          </div>
 
-           <div className="p-6 sm:p-8 space-y-8 print:p-0 print:space-y-4 bg-white print:font-sans print:h-full print:flex print:flex-col print:justify-between">
-              <div>
-                <div className="mb-4 pt-2">
-                    <PrintHeader 
-                      title="SERVICE SLIP" 
-                      logo={LEMA_LOGO} 
-                      guestType={guestType !== "\u00A0" && guestType !== "N/A" ? guestType : undefined} 
-                      roomNo={roomNo !== "\u00A0" && roomNo !== "N/A" ? roomNo : undefined} 
-                      therapistName={displayTherapistName} 
-                      paymentMethods={pmArray} 
-                      paymentNote={pmNote} 
-                    />
-                </div>
+          <div className="flex-1 overflow-y-auto p-8" id="printable-area">
+            <div className="max-w-4xl mx-auto space-y-8">
+              <PrintHeader
+                logo={LEMA_LOGO}
+                therapist={displayTherapistName}
+                paymentMethods={pmArray}
+                paymentNote={pmNote}
+              />
 
-                <div className="flex justify-between items-end border-b-2 border-[#f5f1ed] pb-4 print:border-black print:mt-2 print:pb-2">
-                    <div>
-                        <h2 className="text-2xl font-mono font-bold text-[#5a4a3a] print:text-black print:text-xl">
-                          Ref: {fetchedOrder.reference_id || order.id || order.reference_id}
-                        </h2>
-                    </div>
-                    <div className="text-right">
-                        <p className="text-sm font-bold uppercase text-gray-400 print:text-black print:text-xs">Date</p>
-                        <p className="font-medium text-[#5a4a3a] print:text-black print:text-sm">
-                          {formatDate(fetchedOrder.created_at || order.timestamp || order.created_at)}
-                        </p>
-                    </div>
-                </div>
-
-                <div className="print:grid print:grid-cols-[35%_65%] print:gap-8 print:mt-4">
-                  <div className="flex flex-col gap-6 print:gap-4">
-                      <div>
-                          <h3 className="text-sm font-bold text-[#7a6a5a] uppercase tracking-wider mb-3 print:mb-2 print:text-black">
-                            Customer Information
-                          </h3>
-                          <div className="grid grid-cols-2 gap-4 bg-[#fdfbf7] p-4 rounded-lg border border-[#e5ddd5] print:grid-cols-1 print:bg-white print:border-black print:p-3 print:gap-1.5 print:text-sm">
-                            <div className="space-y-1 print:space-y-0 print:flex print:justify-between print:items-start border-b border-transparent print:border-gray-200 print:pb-1">
-                                <span className="text-[10px] font-bold text-gray-400 uppercase print:text-gray-600 print:text-[11px]">Name</span>
-                                <span className="font-medium text-[#5a4a3a] print:text-black leading-tight text-right">
-                                  {fetchedOrder.customer_name || order.customerName || order.customer_name}
-                                </span>
-                            </div>
-                            <div className="space-y-1 print:space-y-0 print:flex print:justify-between print:items-start border-b border-transparent print:border-gray-200 print:pb-1">
-                                <span className="text-[10px] font-bold text-gray-400 uppercase print:text-gray-600 print:text-[11px]">Email</span>
-                                <span className="font-medium text-[#5a4a3a] print:text-black leading-tight truncate text-right">
-                                  {details.email || fetchedOrder.customer_email || order.customer_email || "\u00A0"}
-                                </span>
-                            </div>
-                            <div className="space-y-1 print:space-y-0 print:flex print:justify-between print:items-start border-b border-transparent print:border-gray-200 print:pb-1">
-                                <span className="text-[10px] font-bold text-gray-400 uppercase print:text-gray-600 print:text-[11px]">Phone</span>
-                                <span className="font-medium text-[#5a4a3a] print:text-black leading-tight text-right">
-                                  {details.phone || "\u00A0"}
-                                </span>
-                            </div>
-                            <div className="space-y-1 print:space-y-0 print:flex print:justify-between print:items-start border-b border-transparent print:border-gray-200 print:pb-1">
-                                <span className="text-[10px] font-bold text-gray-400 uppercase print:text-gray-600 print:text-[11px]">Country</span>
-                                <span className="font-medium text-[#5a4a3a] print:text-black leading-tight text-right">
-                                  {details.country || "\u00A0"}
-                                </span>
-                            </div>
-                            
-                            <div className="space-y-1 print:space-y-0 print:flex print:justify-between print:items-start border-b border-transparent print:border-gray-200 print:pb-1">
-                                <span className="text-[10px] font-bold text-gray-400 uppercase print:text-gray-600 print:text-[11px]">Guest Type</span>
-                                <span className="font-medium text-[#5a4a3a] print:text-black leading-tight text-right">{guestType}</span>
-                            </div>
-                            <div className="space-y-1 print:space-y-0 print:flex print:justify-between print:items-start">
-                                <span className="text-[10px] font-bold text-gray-400 uppercase print:text-gray-600 print:text-[11px]">Room No</span>
-                                <span className="font-medium text-[#5a4a3a] print:text-black leading-tight text-right">{roomNo}</span>
-                            </div>
-                          </div>
-                      </div>
-
-                      <div>
-                          <h3 className="text-sm font-bold text-[#7a6a5a] uppercase tracking-wider mb-3 print:mb-2 print:text-black">
-                            Time Tracking
-                          </h3>
-                          <div className="grid grid-cols-1 gap-4 p-4 rounded-lg border border-[#e5ddd5] print:border-black print:p-3 print:gap-3">
-                            <div className="flex items-center justify-between gap-3">
-                                <span className="font-bold text-[#5a4a3a] print:text-black whitespace-nowrap print:text-sm">Time In:</span>
-                                <span className="font-medium text-[#5a4a3a] print:text-black print:text-sm">{timeIn}</span>
-                            </div>
-                            <div className="flex items-center justify-between gap-3 pt-2 print:pt-1 border-t border-gray-200">
-                                <span className="font-bold text-[#5a4a3a] print:text-black whitespace-nowrap print:text-sm">Time Out:</span>
-                                <span className="font-medium text-[#5a4a3a] print:text-black print:text-sm">{timeOut}</span>
-                            </div>
-                          </div>
-                      </div>
-                  </div>
-
-                  <div className="flex flex-col gap-6 print:gap-4 mt-6 print:mt-0">
-                      <div>
-                        <h3 className="text-sm font-bold text-[#7a6a5a] uppercase tracking-wider mb-3 print:mb-2 print:text-black">
-                          Services Ordered
-                        </h3>
-                        <div className="overflow-x-auto print:overflow-visible">
-                            <table className="w-full text-sm text-left border-collapse print:text-[13px]">
-                              <thead>
-                                  <tr className="border-y-2 border-[#e5ddd5] text-[#7a6a5a] print:border-black print:text-black">
-                                    <th className="py-2 px-2 font-bold w-[50%]">Service</th>
-                                    <th className="py-2 px-2 font-bold text-center w-[15%]">Qty</th>
-                                    <th className="py-2 px-2 font-bold text-right w-[15%]">Price</th>
-                                    <th className="py-2 px-2 font-bold text-right w-[20%]">Total</th>
-                                  </tr>
-                              </thead>
-                              <tbody className="text-[#5a4a3a] print:text-black">
-                                  {cart.map((item, idx) => (
-                                    <tr key={idx} className="border-b border-[#f5f1ed] print:border-gray-300">
-                                        <td className="py-2.5 px-2">
-  {details.discount.percentage === 28.5714 ? 'SC Discount – VAT‑Exempt' : `Discount (${details.discount.percentage}%)`}:                                        <p className="font-medium leading-tight">{item.name}</p>
-                                          <p className="text-xs text-[#7a6a5a] print:text-gray-600 mt-0.5">{item.duration}</p>
-                                        </td>
-                                        <td className="py-2.5 px-2 text-center align-top">{item.quantity}</td>
-                                        <td className="py-2.5 px-2 text-right align-top">₱{item.price?.toLocaleString()}</td>
-                                        <td className="py-2.5 px-2 text-right font-medium align-top">
-                                          ₱{(item.price * item.quantity).toLocaleString()}
-                                        </td>
-                                    </tr>
-                                  ))}
-                              </tbody>
-                            </table>
-                        </div>
-                      </div>
-
-                      <div className="border-t-2 border-[#e5ddd5] pt-4 flex flex-col items-end print:border-black print:pt-3 print:mt-2 h-full justify-end">
-                        <div className="w-full sm:w-72 print:w-64 space-y-2 text-[#5a4a3a] print:text-black">
-                            <div className="flex justify-between text-sm">
-                              <span className="font-medium text-[#7a6a5a] print:text-gray-700">Subtotal:</span>
-                              <span className="font-medium">₱{basePrice.toLocaleString()}</span>
-                            </div>
-                            {hasDiscount && (
-                              <div className="flex justify-between text-sm text-green-600 print:text-gray-700">
-                                  <span className="font-medium">{details.discount.percentage === 28.5714 ? 'SC Discount – VAT‑Exempt' : `Discount (${details.discount.percentage}%)`}:</span>
-                                  <span className="font-medium">-₱{discountAmount.toLocaleString()}</span>
-                              </div>
-                            )}
-                            <div className="flex justify-between text-sm">
-                              <span className="font-medium text-[#7a6a5a] print:text-gray-700">Tip / Gratuity:</span>
-                              <span className="font-medium">₱{Number(tipAmount).toLocaleString()}</span>
-                            </div>
-                            <div className="flex justify-between text-xl print:text-lg font-bold text-[#5a4a3a] pt-3 border-t border-[#8b7355] mt-2 print:border-black print:text-black">
-                              <span>Total:</span>
-                              <span>₱{finalTotal.toLocaleString()}</span>
-                            </div>
-                        </div>
-                      </div>
+              <div className="border-b border-gray-100 pb-2 mb-6">
+                <div className="flex justify-between items-end">
+                  <span className="text-xs font-mono text-gray-400">Ref: {fetchedOrder.reference_id || order.id || order.reference_id}</span>
+                  <div className="text-right">
+                    <p className="text-[10px] uppercase tracking-widest text-gray-400 font-bold mb-1">Date</p>
+                    <p className="text-sm font-medium text-gray-900">{formatDate(fetchedOrder.created_at || order.timestamp || order.created_at)}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="text-center mt-8 pt-4 border-t border-[#f5f1ed] text-[#7a6a5a] print:border-black print:text-black print:mt-4 print:pt-2">
-                  <p className="text-sm print:text-xs italic font-serif">Thank you for choosing Lema Filipino Spa.</p>
-                  <p className="text-xs print:text-[10px] mt-1">This document serves as your booking reference.</p>
-              </div>
-           </div>
+              <div className="grid grid-cols-2 gap-12">
+                <div className="space-y-6">
+                  <section>
+                    <h3 className="text-[10px] font-bold text-gray-900 mb-4 pb-2 border-b uppercase tracking-widest">Customer Information</h3>
+                    <div className="space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-xs text-gray-500">Name</span>
+                        <span className="text-xs font-semibold text-gray-900">{fetchedOrder.customer_name || order.customerName || order.customer_name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-xs text-gray-500">Email</span>
+                        <span className="text-xs font-semibold text-gray-900">{details.email || fetchedOrder.customer_email || order.customer_email || "\u00A0"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-xs text-gray-500">Phone</span>
+                        <span className="text-xs font-semibold text-gray-900">{details.phone || "\u00A0"}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-xs text-gray-500">Country</span>
+                        <span className="text-xs font-semibold text-gray-900">{details.country || "\u00A0"}</span>
+                      </div>
+                      <div className="flex justify-between pt-2 border-t border-gray-50">
+                        <span className="text-xs text-gray-500">Guest Type</span>
+                        <span className="text-xs font-semibold text-gray-900">{guestType}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-xs text-gray-500">Room No</span>
+                        <span className="text-xs font-semibold text-gray-900">{roomNo}</span>
+                      </div>
+                    </div>
+                  </section>
 
-           <div className="p-6 border-t border-[#f5f1ed] bg-gray-50 mt-auto print:hidden">
-              <Button onClick={onClose} className="w-full md:w-auto">Close Details</Button>
-           </div>
+                  <section>
+                    <h3 className="text-[10px] font-bold text-gray-900 mb-4 pb-2 border-b uppercase tracking-widest">Time Tracking</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                        <p className="text-[9px] uppercase tracking-tighter text-gray-400 font-bold mb-1">Time In:</p>
+                        <p className="text-sm font-mono font-bold text-gray-900">{timeIn}</p>
+                      </div>
+                      <div className="bg-gray-50 p-3 rounded-lg border border-gray-100">
+                        <p className="text-[9px] uppercase tracking-tighter text-gray-400 font-bold mb-1">Time Out:</p>
+                        <p className="text-sm font-mono font-bold text-gray-900">{timeOut}</p>
+                      </div>
+                    </div>
+                  </section>
+                </div>
+
+                <div className="space-y-6">
+                  <section>
+                    <h3 className="text-[10px] font-bold text-gray-900 mb-4 pb-2 border-b uppercase tracking-widest">Services Ordered</h3>
+                    <div className="overflow-hidden border border-gray-100 rounded-lg">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-gray-50 border-b border-gray-100">
+                            <th className="px-3 py-2 text-[9px] font-bold uppercase text-gray-500">Service</th>
+                            <th className="px-3 py-2 text-[9px] font-bold uppercase text-gray-500 text-center">Qty</th>
+                            <th className="px-3 py-2 text-[9px] font-bold uppercase text-gray-500 text-right">Price</th>
+                            <th className="px-3 py-2 text-[9px] font-bold uppercase text-gray-500 text-right">Total</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {cart.map((item, idx) => (
+                            <tr key={idx}>
+                              <td className="px-3 py-2 text-[11px] text-gray-900 leading-tight">
+                                <span className="font-semibold block">{item.name}</span>
+                                <span className="text-gray-400 text-[10px]">{item.duration}</span>
+                              </td>
+                              <td className="px-3 py-2 text-[11px] text-center font-medium">{item.quantity}</td>
+                              <td className="px-3 py-2 text-[11px] text-right">₱{item.price?.toLocaleString()}</td>
+                              <td className="px-3 py-2 text-[11px] text-right font-bold">₱{(item.price * item.quantity).toLocaleString()}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+
+                  <section className="bg-gray-50/50 rounded-xl p-5 border border-gray-100 space-y-3">
+                    <div className="flex justify-between text-xs text-gray-500">
+                      <span>Subtotal:</span>
+                      <span className="font-medium text-gray-900">₱{basePrice.toLocaleString()}</span>
+                    </div>
+                    {hasDiscount && (
+                      <div className="flex justify-between text-xs text-red-600 font-medium">
+                        <span>{details.discount.percentage === 28.5714 ? 'SC Discount – VAT‑Exempt' : `Discount (${details.discount.percentage}%)`}:</span>
+                        <span>-₱{discountAmount.toLocaleString()}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-xs text-gray-500">
+                      <span>Tip / Gratuity:</span>
+                      <span className="font-medium text-gray-900">₱{Number(tipAmount).toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between items-center pt-3 border-t border-gray-200">
+                      <span className="text-sm font-bold text-gray-900 uppercase tracking-tighter">Total:</span>
+                      <span className="text-xl font-black text-gray-900">₱{finalTotal.toLocaleString()}</span>
+                    </div>
+                  </section>
+                </div>
+              </div>
+
+              <div className="pt-12 mt-12 border-t border-gray-100 text-center space-y-2 pb-8">
+                <p className="text-xs font-medium text-gray-900 uppercase tracking-widest">Thank you for choosing Lema Filipino Spa.</p>
+                <p className="text-[10px] text-gray-400">This document serves as your booking reference.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="border-t p-6 bg-gray-50 flex justify-end shrink-0">
+            <Button onClick={onClose} variant="secondary">Close Details</Button>
+          </div>
         </motion.div>
       </div>
     );
   };
 
   return (
-    <div className="w-full max-w-6xl mx-auto p-4 space-y-6">
-      <div className="print:hidden space-y-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-[#5a4a3a] flex items-center gap-2">
-                {t('submissions') || 'Admin Dashboard'}
-                {role === 'admin' && <Shield className="h-5 w-5 text-[#d4a574]" title="Administrator Access" />}
-            </h1>
-            <p className="text-gray-500">
-                Logged in as <span className="font-semibold capitalize">{role}</span>
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2 bg-white p-1 rounded-lg border shadow-sm">
-             {availableTabs.map(tab => (
-               <button 
-                 key={tab} 
-                 onClick={() => {
-                   setActiveTab(tab);
-                   setSelectedItem(null);
-                 }} 
-                 className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                   activeTab === tab 
-                     ? 'bg-[#8b7355] text-white shadow-sm' 
-                     : 'text-gray-600 hover:bg-gray-100'
-                 }`}
-               >
-                 {tab === 'intakes' ? t('healthForm') : tab === 'orders' ? 'Booking' : tab.charAt(0).toUpperCase() + tab.slice(1)}
-               </button>
-             ))}
-             
-             {isAdmin && (
-               <>
-                  <button 
-                    onClick={() => {
-                      setActiveTab('services');
-                      setSelectedItem(null);
-                    }} 
-                    aria-label="Manage Products" 
-                    title="Manage Products" 
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
-                      activeTab === 'services' 
-                        ? 'bg-[#8b7355] text-white shadow-sm' 
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                     <Package className="h-4 w-4" /> Products
-                  </button>
-
-                  <button 
-                    onClick={() => {
-                      setActiveTab('gift-cards');
-                      setSelectedItem(null);
-                    }} 
-                    aria-label="Manage Gift Cards" 
-                    title="Manage Gift Cards" 
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
-                      activeTab === 'gift-cards' 
-                        ? 'bg-[#8b7355] text-white shadow-sm' 
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                     <Gift className="h-4 w-4" /> Gift Cards
-                  </button>
-
-                  <button 
-                    onClick={() => {
-                      setActiveTab('therapists');
-                      setSelectedItem(null);
-                    }} 
-                    aria-label="Manage Therapists" 
-                    title="Manage Therapists" 
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
-                      activeTab === 'therapists' 
-                        ? 'bg-[#8b7355] text-white shadow-sm' 
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                     <UserCog className="h-4 w-4" /> Therapists
-                  </button>
-
-                  <button 
-                    onClick={() => {
-                      setActiveTab('management');
-                      setSelectedItem(null);
-                    }} 
-                    aria-label="Open Management Page" 
-                    title="Manage Users" 
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
-                      activeTab === 'management' 
-                        ? 'bg-[#8b7355] text-white shadow-sm' 
-                        : 'text-gray-600 hover:bg-gray-100'
-                    }`}
-                  >
-                     <Users className="h-4 w-4" /> Management
-                  </button>
-                </>
-             )}
-          </div>
+    <div className="max-w-7xl mx-auto p-4 md:p-8">
+      <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold text-gray-900">{t('submissions') || 'Admin Dashboard'}</h1>
+          <p className="text-gray-500 mt-1 flex items-center gap-2">
+            Logged in as <Badge variant="secondary" className="capitalize">{role}</Badge>
+          </p>
         </div>
+      </div>
 
-        {activeTab === 'services' && isAdmin ? (
-          <ServicesManager />
-        ) : activeTab === 'management' && isAdmin ? (
-          <ManagementPage 
-            feedbacks={feedbacks} 
-            onRefreshFeedbacks={() => fetchFeedbacks()} 
-            isLoadingFeedbacks={isLoadingFeedbacks} 
-          />
-        ) : activeTab === 'gift-cards' && isAdmin ? (
-          <GiftCardsPage />
-        ) : activeTab === 'therapists' && isAdmin ? (
-          <TherapistManager />
-        ) : (
-          <div className="bg-white rounded-xl border shadow-sm overflow-hidden min-h-[400px]">
+      <div className="flex flex-wrap gap-2 mb-8 bg-gray-50 p-1.5 rounded-xl border border-gray-200 w-fit">
+        {availableTabs.map(tab => (
+          <button
+            key={tab}
+            onClick={() => {
+              setActiveTab(tab);
+              setSelectedItem(null);
+            }}
+            className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+              activeTab === tab
+                ? 'bg-[#8b7355] text-white shadow-sm'
+                : 'text-gray-600 hover:bg-gray-100'
+            }`}
+          >
+            {tab === 'intakes' ? t('healthForm') : tab === 'orders' ? 'Booking' : tab.charAt(0).toUpperCase() + tab.slice(1)}
+          </button>
+        ))}
+        {isAdmin && (
+          <>
+            <div className="w-px h-6 bg-gray-200 self-center mx-1" />
+            <button
+              key="services"
+              onClick={() => {
+                setActiveTab('services');
+                setSelectedItem(null);
+              }}
+              aria-label="Manage Products"
+              title="Manage Products"
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
+                activeTab === 'services'
+                  ? 'bg-[#8b7355] text-white shadow-sm'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <Package className="h-4 w-4" />
+              Products
+            </button>
+            <button
+              key="gift-cards"
+              onClick={() => {
+                setActiveTab('gift-cards');
+                setSelectedItem(null);
+              }}
+              aria-label="Manage Gift Cards"
+              title="Manage Gift Cards"
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
+                activeTab === 'gift-cards'
+                  ? 'bg-[#8b7355] text-white shadow-sm'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <Gift className="h-4 w-4" />
+              Gift Cards
+            </button>
+            <button
+              key="therapists"
+              onClick={() => {
+                setActiveTab('therapists');
+                setSelectedItem(null);
+              }}
+              aria-label="Manage Therapists"
+              title="Manage Therapists"
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
+                activeTab === 'therapists'
+                  ? 'bg-[#8b7355] text-white shadow-sm'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <Users className="h-4 w-4" />
+              Therapists
+            </button>
+            <button
+              onClick={() => {
+                setActiveTab('management');
+                setSelectedItem(null);
+              }}
+              aria-label="Open Management Page"
+              title="Manage Users"
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-all flex items-center gap-2 ${
+                activeTab === 'management'
+                  ? 'bg-[#8b7355] text-white shadow-sm'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <UserCog className="h-4 w-4" />
+              Management
+            </button>
+          </>
+        )}
+      </div>
+
+      {activeTab === 'services' && isAdmin ? (
+        <ServicesManager />
+      ) : activeTab === 'management' && isAdmin ? (
+        <ManagementPage />
+      ) : activeTab === 'feedbacks' && isAdmin ? (
+        <FeedbackReviewModal feedbacks={feedbacks} onRefresh={fetchFeedbacks} isLoadingFeedbacks={isLoadingFeedbacks} />
+      ) : activeTab === 'gift-cards' && isAdmin ? (
+        <GiftCardsPage />
+      ) : activeTab === 'therapists' && isAdmin ? (
+        <TherapistManager />
+      ) : (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-              <thead className="text-xs text-gray-700 uppercase bg-gray-50 border-b">
-                <tr>
-                  <th className="px-6 py-4 font-medium">Reference ID</th>
-                  <th className="px-6 py-4 font-medium">Customer</th>
-                  <th className="px-6 py-4 font-medium">Date</th>
-                  {activeTab === 'orders' && <th className="px-6 py-4 font-medium">Total</th>}
-                  {activeTab === 'feedbacks' && <th className="px-6 py-4 font-medium">Rating</th>}
-                  <th className="px-6 py-4 font-medium">Status</th>
-                  {activeTab === 'orders' && <th className="px-6 py-4 font-medium">Feedback</th>}
-                  <th className="px-6 py-4 font-medium text-right">{activeTab === 'orders' ? 'Print' : 'Action'}</th>
-                  {activeTab === 'feedbacks' && <th className="px-6 py-4 font-medium text-right">FB Review</th>}
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-gray-50/50 border-b border-gray-200">
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">Reference ID</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">Customer</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">Date</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">Total</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">Rating</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">Status</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">Feedback</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">{activeTab === 'orders' ? 'Print' : 'Action'}</th>
+                  <th className="px-6 py-4 text-xs font-bold uppercase tracking-wider text-gray-500">FB Review</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-gray-100">
                 {displayItems.length > 0 ? (
                   displayItems.map(item => {
                     const detailsObj = (() => {
@@ -823,106 +726,89 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
                       }
                       return item.details;
                     })();
-                    
+
                     return (
-                      <tr key={item.id} className="border-b hover:bg-gray-50/50 transition-colors">
-                      <td className="px-6 py-4 font-mono text-gray-500">
-                        {item.booking_id || item.reference_id || item.id}
-                      </td>
-                      <td className="px-6 py-4 font-medium text-[#5a4a3a]">
-                        {item.customerName || item.customer_name || detailsObj?.guestName || 'N/A'}
-                      </td>
-                      <td className="px-6 py-4 text-gray-500 flex items-center gap-2">
-                        <Clock className="h-3 w-3" /> {formatDate(item.timestamp || item.created_at)}
-                      </td>
-                      {activeTab === 'orders' && (
+                      <tr key={item.id} className="hover:bg-gray-50/50 transition-colors group">
+                        <td className="px-6 py-4 text-sm font-mono text-gray-500">
+                          {item.booking_id || item.reference_id || item.id}
+                        </td>
                         <td className="px-6 py-4">
-                            <div className="flex flex-col">
-                               <span className="font-bold text-[#5a4a3a]">₱{item.totalPrice?.toLocaleString()}</span>
-                               {detailsObj?.discount && (
-                                 <div className="flex flex-wrap items-center gap-1 mt-1">
-                                      <Badge variant="outline" className="text-[10px] text-green-600 bg-green-50 border-green-200 font-normal px-1.5 py-0.5 h-auto gap-1">
-                                          <Tag className="h-3 w-3" />
-                                          <span>
-                                             {detailsObj.discount.percentage === 28.5714 ? 'SC Discount – VAT‑Exempt' : `${detailsObj.discount.percentage}%`}
-                                                              </span>
-                              </Badge>
+                          <p className="text-sm font-bold text-gray-900">
+                            {item.customerName || item.customer_name || detailsObj?.guestName || 'N/A'}
+                          </p>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-600">
+                          {formatDate(item.timestamp || item.created_at)}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-bold text-gray-900">₱{item.totalPrice?.toLocaleString()}</span>
+                            {detailsObj?.discount && (
+                              <span className="text-[10px] font-medium text-red-600 bg-red-50 px-1.5 py-0.5 rounded-md w-fit mt-1">
+                                {detailsObj.discount.percentage === 28.5714 ? 'SC Discount – VAT‑Exempt' : `${detailsObj.discount.percentage}%`}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {detailsObj?.overallRating ? (
+                            <div className="flex flex-col gap-1">
+                              <StarRating rating={detailsObj.overallRating} />
+                              <span className="text-[10px] text-gray-400 font-medium">{detailsObj.overallRating} / 5</span>
                             </div>
+                          ) : 'N/A'}
+                        </td>
+                        <td className="px-6 py-4">
+                          {activeTab === 'orders' ? (
+                            <BookingStatusCell item={item} />
+                          ) : (
+                            renderStatusBadge(item.status || 'Completed')
                           )}
-                        </div>
-                      </td>
-                    )}                      
-                      {activeTab === 'feedbacks' && (
-                        <td className="px-6 py-4">
-                            <div className="flex flex-col">
-                               <span className="font-bold text-[#5a4a3a] flex items-center gap-1">
-                                  {detailsObj?.overallRating ? (
-                                    <>
-                                      <Star className="h-3 w-3 text-[#d4a574] fill-[#d4a574]" />
-                                      {detailsObj.overallRating} / 5
-                                    </>
-                                  ) : 'N/A'}
-                               </span>
-                            </div>
-                         </td>
-                      )}
-
-                      <td className="px-6 py-4">
-                        {activeTab === 'orders' ? (
-                          <BookingStatusCell item={item} />
-                        ) : (
-                          renderStatusBadge(item.status || 'Completed')
-                        )}
-                      </td>
-
-                      {activeTab === 'orders' && (
+                        </td>
                         <td className="px-6 py-4">
                           <FeedbackCell item={item} />
                         </td>
-                      )}
-
-                      <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="gap-2 text-[#8b7355] border-[#8b7355]/30 hover:bg-[#8b7355]/10" 
-                          onClick={() => setSelectedItem(item)}
-                        >
-                          <Eye className="h-3 w-3" /> View
-                        </Button>
-                        {isAdmin && (
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="text-red-400 hover:text-red-600 hover:bg-red-50 h-8 w-8" 
-                            onClick={e => handleDelete(e, item)} 
-                          >
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 gap-2"
+                              onClick={() => setSelectedItem(item)}
+                            >
+                              <Eye className="h-4 w-4" />
+                              View
+                            </Button>
+                            {isAdmin && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="text-red-400 hover:text-red-600 hover:bg-red-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                                onClick={(e) => handleDelete(e, item)}
+                              >
                                 <Trash2 className="h-4 w-4" />
-                             </Button>
-                        )}
-                      </td>
-                      {activeTab === 'feedbacks' && (
-                         <td className="px-6 py-4 text-right">
-                           <Button 
-                             variant="secondary" 
-                             size="sm" 
-                             className="gap-2 bg-[#fdfbf7] text-[#8b7355] border border-[#e5ddd5] hover:bg-[#8b7355] hover:text-white transition-colors" 
-                             onClick={() => setSelectedFeedbackForReview(item)}
-                           >
-                             <MessageSquare className="h-3 w-3" /> FB Review
-                           </Button>
-                         </td>
-                      )}
-                    </tr>
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-purple-600 hover:text-purple-700 hover:bg-purple-50 gap-2"
+                            onClick={() => setSelectedFeedbackForReview(item)}
+                          >
+                            <MessageSquare className="h-4 w-4" />
+                            FB Review
+                          </Button>
+                        </td>
+                      </tr>
                     );
                   })
                 ) : (
                   <tr>
-                    <td 
-                      colSpan={activeTab === 'orders' ? 7 : activeTab === 'feedbacks' ? 7 : 5} 
-                      className="px-6 py-12 text-center text-gray-400"
-                    >
-                      No submissions found.
+                    <td colSpan="9" className="px-6 py-12 text-center text-gray-500 bg-gray-50/30">
+                      No records found
                     </td>
                   </tr>
                 )}
@@ -930,43 +816,29 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
             </table>
           </div>
         </div>
-        )}
-      </div>
+      )}
 
-      <AnimatePresence>
-        {selectedItem && activeTab === 'intakes' && (
-          <HealthFormDetailsModal 
-            key="intake-modal" 
-            intake={selectedItem} 
-            onClose={() => setSelectedItem(null)} 
-          />
-        )}
-
-        {selectedItem && activeTab === 'orders' && (
-          <OrderDetailsModal 
-            key="order-modal" 
-            order={selectedItem} 
-            onClose={() => setSelectedItem(null)} 
-          />
-        )}
-
-        {selectedItem && activeTab === 'feedbacks' && (
-          <FeedbackPrintModal 
-            key="feedback-print-modal" 
-            feedback={selectedItem} 
-            onClose={() => setSelectedItem(null)} 
-            allOrders={submissions?.orders || []} 
-          />
-        )}
-
-        {selectedFeedbackForReview && activeTab === 'feedbacks' && (
-          <FeedbackReviewModal
-             key="feedback-review-modal"
-             feedback={selectedFeedbackForReview}
-             onClose={() => setSelectedFeedbackForReview(null)}
-          />
-        )}
-      </AnimatePresence>
+      {selectedItem && activeTab === 'intakes' && (
+        <HealthFormDetailsModal intake={selectedItem} onClose={() => setSelectedItem(null)} />
+      )}
+      {selectedItem && activeTab === 'orders' && (
+        <OrderDetailsModal order={selectedItem} onClose={() => setSelectedItem(null)} />
+      )}
+      {selectedItem && activeTab === 'feedbacks' && (
+        <FeedbackPrintModal
+          feedback={selectedItem}
+          onClose={() => setSelectedItem(null)}
+          allOrders={submissions?.orders || []}
+        />
+      )}
+      {selectedFeedbackForReview && activeTab === 'feedbacks' && (
+        <FeedbackReviewModal
+          isOpen={true}
+          onClose={() => setSelectedFeedbackForReview(null)}
+          specificFeedback={selectedFeedbackForReview}
+          onRefresh={fetchFeedbacks}
+        />
+      )}
     </div>
   );
 };
