@@ -624,7 +624,7 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
                                   {cart.map((item, idx) => (
                                     <tr key={idx} className="border-b border-[#f5f1ed] print:border-gray-300">
                                         <td className="py-2.5 px-2">
-  {details.discount.percentage === 28.5714 ? 'Senior Citizen Discount – VAT Exempt' : `Discount (${details.discount.percentage}%)`}:                                        <p className="font-medium leading-tight">{item.name}</p>
+  {details.discount.percentage === 28.5714 ? 'SC Discount – VAT‑Exempt' : `Discount (${details.discount.percentage}%)`}:                                        <p className="font-medium leading-tight">{item.name}</p>
                                           <p className="text-xs text-[#7a6a5a] print:text-gray-600 mt-0.5">{item.duration}</p>
                                         </td>
                                         <td className="py-2.5 px-2 text-center align-top">{item.quantity}</td>
@@ -647,7 +647,7 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
                             </div>
                             {hasDiscount && (
                               <div className="flex justify-between text-sm text-green-600 print:text-gray-700">
-                                  <span className="font-medium">{details.discount.percentage === 28.5714 ? 'Senior Citizen Discount – VAT Exempt' : `Discount (${details.discount.percentage}%)`}:</span>
+                                  <span className="font-medium">{details.discount.percentage === 28.5714 ? 'SC Discount – VAT‑Exempt' : `Discount (${details.discount.percentage}%)`}:</span>
                                   <span className="font-medium">-₱{discountAmount.toLocaleString()}</span>
                               </div>
                             )}
@@ -844,7 +844,7 @@ const AdminDashboard = ({ submissions, onDeleteSubmission, onUpdateStatus }) => 
                                       <Badge variant="outline" className="text-[10px] text-green-600 bg-green-50 border-green-200 font-normal px-1.5 py-0.5 h-auto gap-1">
                                           <Tag className="h-3 w-3" />
                                           <span>
-                                             {detailsObj.discount.percentage === 28.5714 ? 'VAT‑Exempt Sale (incl. SC discount)' : `${detailsObj.discount.percentage}%`}
+                                             {detailsObj.discount.percentage === 28.5714 ? 'SC Discount – VAT‑Exempt' : `${detailsObj.discount.percentage}%`}
                                                               </span>
                               </Badge>
                             </div>
