@@ -647,7 +647,7 @@ Services Ordered
 </div>
 {hasDiscount && (
 <div className="flex justify-between text-sm text-green-600 print:text-gray-700">
-<span className="font-medium">Discount ({details.discount.percentage}%):</span>
+<span className="font-medium">{details.discount.percentage >= 28.57 && details.discount.percentage <= 28.58 ? 'Senior Citizen Discount – VAT‑exempt' : `Discount (${details.discount.percentage}%)`}:</span>
 <span className="font-medium">-₱{discountAmount.toLocaleString()}</span>
 </div>
 )}
@@ -839,7 +839,7 @@ return (
 <Badge variant="outline" className="text-[10px] text-green-600 bg-green-50 border-green-200 font-normal px-1.5 py-0.5 h-auto gap-1">
 <Tag className="h-3 w-3" />
 <span>
--{detailsObj.discount.percentage}%
+{detailsObj.discount.percentage >= 28.57 && detailsObj.discount.percentage <= 28.58 ? 'SC Discount' : `-${detailsObj.discount.percentage}%`}
 </span>
 </Badge>
 </div>
