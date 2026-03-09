@@ -411,7 +411,7 @@ function CheckoutForm({ cart, totalPrice, onCancel, onSubmit }) {
                 <AnimatePresence>
                   {appliedDiscount && (
                     <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="flex justify-between text-green-600 font-medium">
-                <span>{appliedDiscount.percentage === 10.71 ? 'VAT‑Exempt Sale (incl. SC discount)' : `Discount (${appliedDiscount.percentage}%)`}</span>                      <span>-₱{discountAmount.toLocaleString()}</span>
+                <span>{appliedDiscount.percentage === 28.5714 ? 'VAT‑Exempt Sale (incl. SC discount)' : `Discount (${appliedDiscount.percentage}%)`}</span>                      <span>-₱{discountAmount.toLocaleString()}</span>
                     </motion.div>
                   )}
                 </AnimatePresence>
