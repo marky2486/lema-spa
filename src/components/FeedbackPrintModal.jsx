@@ -384,7 +384,7 @@ export default function FeedbackPrintModal({ feedback, order: initialOrder, allO
                             </div>
                             {hasDiscount && (
                               <div className="flex justify-between text-sm text-green-600 print:text-gray-700 print:text-[11px]">
-                                  <span className="font-medium">{discountData.percentage === 28.5714 ? 'SC Discount – VAT‑Exempt' : `Discount (${discountData.percentage}%)`}:</span>
+                                  <span className="font-medium">{discountData.percentage >= 28.57 && discountData.percentage <= 28.58 ? 'Senior Citizen Discount – VAT‑exempt' : `Discount (${discountData.percentage}%)`}:</span>
                                   <span className="font-medium">-₱{discountAmount.toLocaleString()}</span>
                               </div>
                             )}
