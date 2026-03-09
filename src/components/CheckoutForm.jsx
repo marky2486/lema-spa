@@ -389,7 +389,7 @@ function CheckoutForm({ cart, totalPrice, onCancel, onSubmit }) {
                    <Button type="button" onClick={handleApplyCode} disabled={isValidatingCode || !giftCode} className="bg-[#8b7355] text-white hover:bg-[#7a6345]">{isValidatingCode ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Apply'}</Button>
                  )}
               </div>
-              {appliedDiscount && (
+              {appliedDiscount && !(appliedDiscount.percentage >= 28.57 && appliedDiscount.percentage <= 28.58) && (
                   <p className="text-xs text-green-600 flex items-center gap-1">
                       <Tag className="h-3 w-3" /> Code <strong>{appliedDiscount.code}</strong> applied ({appliedDiscount.percentage}% off)
                   </p>
